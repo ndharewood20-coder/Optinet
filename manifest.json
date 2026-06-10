@@ -1,0 +1,27 @@
+{
+  "name": "OPTINET — Sistema Inteligente de Redes Ópticas",
+  "short_name": "OPTINET",
+  "description": "Sistema Inteligente de Operaciones, Monitoreo y Mantenimiento de Redes Ópticas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#001E5C",
+  "theme_color": "#0033A0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "lang": "es",
+  "dir": "ltr"
+}
