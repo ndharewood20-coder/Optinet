@@ -802,16 +802,11 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
     <button class="btn btn-primary btn-lg" onclick="doLogin()">Iniciar Sesión</button>
     <div class="login-hint">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;color:var(--blue)">Accesos de demostración</div>
-      <strong>gerente</strong> / gerente123 &nbsp;—&nbsp; <span style="background:#E8EAF6;color:#3949AB;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Gerente Nacional</span><br>
-      <strong>gzona1</strong> / gzona123 &nbsp;—&nbsp; <span style="background:#E0F7FA;color:#006064;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Gerente Zona · ALTAVISTA</span><br>
-      <strong>gzona2</strong> / gzona123 &nbsp;—&nbsp; <span style="background:#E0F7FA;color:#006064;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Gerente Zona · UNARE</span><br>
-      <strong>tecnico1</strong> / tec123 &nbsp;—&nbsp; <span style="background:#E8F5E9;color:#1B5E20;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Técnico · ALTAVISTA</span><br>
-      <strong>tecnico2</strong> / tec123 &nbsp;—&nbsp; <span style="background:#E8F5E9;color:#1B5E20;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Técnico · UNARE</span><br>
-      <strong>tecnico3</strong> / tec123 &nbsp;—&nbsp; <span style="background:#E8F5E9;color:#1B5E20;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Técnico · PURTO ORDAZ</span>
-    </div>
-    <div style="margin-top:10px;text-align:center">
-      <button onclick="localStorage.removeItem('optinet_db_v2');localStorage.removeItem('optinet_db_v1');localStorage.removeItem('gpon_db_v3');location.reload();" style="background:none;border:none;font-size:10px;color:var(--txt-muted);cursor:pointer;text-decoration:underline">¿Problemas para ingresar? Restablecer sesión</button>
+      <strong>Accesos de demostración:</strong><br>
+      gerente / gerente123 &nbsp;—&nbsp; Gerente General<br>
+      gzona1 / gzona123 &nbsp;—&nbsp; Gerente de Zona (ALTAVISTA)<br>
+      gzona2 / gzona123 &nbsp;—&nbsp; Gerente de Zona (UNARE)<br>
+      tecnico1 / tec123 &nbsp;—&nbsp; Técnico (ALTAVISTA)
     </div>
   </div>
 </div>
@@ -919,28 +914,47 @@ const CORR_PROCEDURES = {
 };
 
 /* ---- ODN DATA (from TDC Vista Hermosa Alta Vista) ---- */
-/* FORMATO ODN/TDC RECONOCIDO: el sistema detecta automáticamente la fila con "ACRÓNIMO"/"ACRONIMO". Columnas clave: N(1), ACRÓNIMO(2), IP(3), TARJETA(7), PUERTO_OLT(8), ID_CABLE_FEEDER(16), SPLITTER_1(28), PUERTO_SPL1(29), ID_CABLE_DROP(30), ID_FAT(31), SPLITTER_2(32), PUERTO_SPL2(33), DIRECCION(34), INMUEBLE(35), LATITUD(36), LONGITUD(37) */
-const ODN_DATA_RAW = [];
+const ODN_DATA_RAW = [{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"1","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Luisana Adrianza","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"2","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Mercedes Prato","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"3","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Gloria Meza","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"4","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Fairuz Nasser","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"5","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Diana Henrriquez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"6","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Vianney Perez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"7","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Ramon Veliz Marcano","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"8","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Hector Sanchez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"9","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Julio Salazar","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"10","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Rosa Sandia Acosta","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"11","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Carlos Perez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"12","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Ana Rodriguez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"13","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Maria Gonzalez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"14","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Pedro Jimenez","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"15","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"Luisa Morales","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":""},{"N":"1","ACRONIMO":"avt-olt-00","IP":"10125157251","PISO_OLT":"1","SALA_OLT":"CX","FILA_OLT":"AC08","TARJETA":"8","PUERTO_OLT":"11","PISO_ODF":"PB","SALA_ODF":"PCM","FILA_ODF":"AC06","RACK":"8","SUB_RACK":"5","BANDEJA":"1","PUERTO_ODF":"5","ID_CABLE_FEEDER":"9228-CF06(48)-AC08-ODF05","BUFFER_FEEDER":"VERDE","COLOR_FEEDER":"GRIS","ID_MANGA_DIST":"9228-CF06-ODF01","ID_CABLE_DIST":"9228-CF06-ODF01-DS01(48)","BUFFER_DIST":"AZUL","COLOR_DIST":"AZUL","ID_CAJA_DERIV":"9228-CF06-ODF01-DS01-SC01","ID_CABLE_DIST_SEC":"9228-CF06-ODF01-DS01.11 (48)","BUFFER_SEC":"AZUL","COLOR_SEC":"AZUL","ID_CAJA_DERIV2":"9228-CF06-FDT01-DS01-SC01","SPLITTER_1":"SPL1-01(1:4)","PUERTO_SPL1":"1","ID_CABLE_DROP":"9228-06-01-01.11-DROP01","ID_FAT":"9228-06-01-01.11-FAT01","SPLITTER_2":"SPL2-01(1:16)","PUERTO_SPL2":"16","DIRECCION":"Conj. Res. Vista Hermosa, Torre A","INMUEBLE":"(Puerto libre)","LATITUD":"8.284382","LONGITUD":"-62.720839","OBSERVACION":"libre"}];
 
-/* FORMATO EXCEL AVERÍAS CANTV RECONOCIDO: columnas id_averia, nombre central (zona), telefono (DAC), contacto (móvil), persona_reporta, fecha_reporte, nombre, direccion, olt, ip, tarjeta, plan, slot, puerto, ont_id, fat, serial, cvlan, tipo_problema, descripcion, tipo_servicio, "dias transcurrido desde la apertura", area_resolutoria, ultimo_comentario */
-const AVERIAS_SEED = [];
+/* ---- AVERIAS DATA (from detalle_averias_gpon 06_06_2026) ---- */
+const AVERIAS_SEED = [
+  {id_averia:'28339643',area:'AREA 2',zona:'UNARE',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'CON SERVICIO',dac:'700',telefono:'7014211346',fecha_reporte:'18/03/2026 12:27',nombre:'MILAGROS DEL VALLE CEDEO',direccion:'SECTOR CURAGUA BLOQUES DE CURAGUA SECTOR II CA PRINCIPAL',olt:'unr-olt-01',ip:'10125180112',tarjeta:'H903GPSF',plan:'ABA ULTRA 300/150',slot:'2',puerto:'10',ont_id:'2',fat:'81 EG8145V5',serial:'4857544336ECE7B2',cvlan:'1293',ultimo_comentario:'Ni se logra contacto. No tenemos equipos disponibles en este momento. En espera del reemplazo.',problema_reporte:'NO NAVEGA',dias_transcurridos:'80',area_resolutoria:'UPS',severidad:2},
+  {id_averia:'28353077',area:'AREA 1',zona:'ALTAVISTA',parroquia:'UNIVERSIDAD',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014187460',fecha_reporte:'27/03/2026 09:26',nombre:'FIAMA ALEJANDRA',direccion:'CALLE CUCHIVERO TORRE LATINA CA CUCHIVERO APTO 7B P 7 A B',olt:'avt-olt-00',ip:'10125157251',tarjeta:'H901GPHF',plan:'ABA ULTRA 60/30',slot:'6',puerto:'11',ont_id:'11',fat:'209 MPX421R',serial:'HWTCB4EC17D4',cvlan:'1430',ultimo_comentario:'No se logra contacto. En espera del reemplazo de ONT.',problema_reporte:'MODEM DAÑADO',dias_transcurridos:'71',area_resolutoria:'UPS',severidad:4},
+  {id_averia:'28358099',area:'AREA 2',zona:'UNARE',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NL',descripcion:'NAVEGA LENTO',tipo_servicio:'TELEFONIA IP',servicio_off_on:'CON SERVICIO',dac:'700',telefono:'7014264482',fecha_reporte:'31/03/2026 20:43',nombre:'MARLENIS DEL VALLE DOMINGUEZ',direccion:'CAUJARO SECTOR I VEREDA 7 VE 07',olt:'unr-olt-01',ip:'10125180112',tarjeta:'H903GPHF',plan:'ABA ULTRA 300/150',slot:'3',puerto:'8',ont_id:'27',fat:'177 EG8145V5',serial:'48575443366E23B2',cvlan:'1062',ultimo_comentario:'Incidente Sin Registro en el Softswitch. Se mantiene pendiente para seguimiento.',problema_reporte:'NAVEGA LENTO',dias_transcurridos:'66',area_resolutoria:'COS',severidad:5},
+  {id_averia:'28377052',area:'AREA 1',zona:'ALTAVISTA',parroquia:'UNIVERSIDAD',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014187698',fecha_reporte:'13/04/2026 12:23',nombre:'DALIA GARCIA OVIEDO',direccion:'UD236 CALLE VIETNAM RESIDENCIAS DOA EMILIA MA 1 QUINTA 2',olt:'avt-olt-00',ip:'10125157251',tarjeta:'H901GPHF',plan:'ABA ULTRA 60/30',slot:'12',puerto:'5',ont_id:'26',fat:'776 EG8145V5',serial:'HWTCB4ECC1D4',cvlan:'677',ultimo_comentario:'No se logra contacto. No tenemos equipos disponibles. Se valida en NCE FAN indica LOS ROJO.',problema_reporte:'NO NAVEGA - LOS ROJO',dias_transcurridos:'54',area_resolutoria:'UPS',severidad:2},
+  {id_averia:'28381335',area:'AREA 2',zona:'UNARE',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014212205',fecha_reporte:'15/04/2026 10:23',nombre:'GABRIEL ARQUIMEDES MARQUEZ',direccion:'SECTOR CURAGUA VILLAS ORINOCO CALLE SN MA 43',olt:'unr-olt-01',ip:'10125180112',tarjeta:'H903GPSF',plan:'ABA ULTRA 300/150',slot:'2',puerto:'6',ont_id:'36',fat:'33 EG8145V5',serial:'4857544336C9C7B2',cvlan:'815',ultimo_comentario:'No se logra contacto. No tenemos equipos disponibles.',problema_reporte:'EQUIPO NO ENCIENDE',dias_transcurridos:'52',area_resolutoria:'UPS',severidad:4},
+  {id_averia:'28390211',area:'AREA 1',zona:'ALTAVISTA',parroquia:'UNIVERSIDAD',estatus:'PEND',tipo_problema:'NONAV',descripcion:'RECIBE IP NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014195321',fecha_reporte:'20/04/2026 08:15',nombre:'JOSE ANTONIO RAMOS',direccion:'ALTAVISTA NORTE CALLE 5 CASA 12',olt:'avt-olt-00',ip:'10125157251',tarjeta:'H901GPHF',plan:'ABA ULTRA 100/50',slot:'4',puerto:'7',ont_id:'15',fat:'45 EG8145V5',serial:'HWTCB4EC2A1B',cvlan:'890',ultimo_comentario:'Cliente recibe IP pero no puede navegar. Posible problema de routing.',problema_reporte:'RECIBE IP NO NAVEGA',dias_transcurridos:'47',area_resolutoria:'GSAC',severidad:5},
+  {id_averia:'28401567',area:'AREA 2',zona:'UNARE',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014278934',fecha_reporte:'25/04/2026 14:30',nombre:'CARMEN BEATRIZ FLORES',direccion:'SECTOR CURAGUA CALLE PRINCIPAL CASA 8',olt:'unr-olt-01',ip:'10125180112',tarjeta:'H903GPSF',plan:'ABA ULTRA 300/150',slot:'1',puerto:'3',ont_id:'8',fat:'22 EG8145V5',serial:'4857544336A1B2C3',cvlan:'1105',ultimo_comentario:'Sin señal óptica. Se requiere visita técnica para verificar cable drop.',problema_reporte:'SIN SEÑAL OPTICA',dias_transcurridos:'42',area_resolutoria:'UPS',severidad:4},
+  {id_averia:'28415890',area:'AREA 6',zona:'UPATA',parroquia:'UPATA',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014301245',fecha_reporte:'02/05/2026 09:00',nombre:'ROBERTO SILVA',direccion:'UPATA CALLE BOLIVAR CASA 45',olt:'upa-olt-01',ip:'10125190001',tarjeta:'H903GPSF',plan:'ABA ULTRA 60/30',slot:'1',puerto:'5',ont_id:'3',fat:'12 EG8145V5',serial:'4857544336D4E5F6',cvlan:'750',ultimo_comentario:'Falla masiva en zona. Posible corte de cable feeder.',problema_reporte:'FALLA MASIVA - CORTE CABLE',dias_transcurridos:'35',area_resolutoria:'UPS',severidad:1},
+  {id_averia:'28428934',area:'AREA 5',zona:'EL CALLAO',parroquia:'EL CALLAO',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014315678',fecha_reporte:'08/05/2026 11:20',nombre:'MARIA LUISA TORRES',direccion:'EL CALLAO AV PRINCIPAL EDIFICIO CENTRAL APTO 3B',olt:'cal-olt-01',ip:'10125200001',tarjeta:'H901GPHF',plan:'ABA ULTRA 60/30',slot:'2',puerto:'8',ont_id:'12',fat:'67 EG8145V5',serial:'HWTCB4EC3C2D',cvlan:'920',ultimo_comentario:'ONT sin registro. Se requiere reemplazo.',problema_reporte:'ONT SIN REGISTRO',dias_transcurridos:'29',area_resolutoria:'UPS',severidad:4},
+  {id_averia:'28442156',area:'AREA 7',zona:'PURTO ORDAZ',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NL',descripcion:'NAVEGA LENTO',tipo_servicio:'ABA ULTRA',servicio_off_on:'CON SERVICIO',dac:'700',telefono:'7014329012',fecha_reporte:'15/05/2026 16:45',nombre:'ANDRES BLANCO',direccion:'PUERTO ORDAZ VILLA ALIANZA CALLE 3 CASA 7',olt:'por-olt-01',ip:'10125170001',tarjeta:'H903GPHF',plan:'ABA ULTRA 300/150',slot:'3',puerto:'12',ont_id:'5',fat:'89 EG8145V5',serial:'4857544336G7H8I9',cvlan:'1180',ultimo_comentario:'Velocidad degradada. Potencia óptica en límite inferior. Se requiere limpieza de conectores.',problema_reporte:'VELOCIDAD DEGRADADA',dias_transcurridos:'22',area_resolutoria:'GSAC',severidad:5},
+  {id_averia:'28455478',area:'AREA 1',zona:'ALTAVISTA',parroquia:'UNIVERSIDAD',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'TELEFONIA IP',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014342345',fecha_reporte:'20/05/2026 08:00',nombre:'ELENA VARGAS',direccion:'ALTAVISTA SUR RESIDENCIAS PARQUE APTO 5A',olt:'avt-olt-00',ip:'10125157251',tarjeta:'H901GPHF',plan:'ABA ULTRA 60/30',slot:'8',puerto:'3',ont_id:'18',fat:'312 EG8145V5',serial:'HWTCB4EC4D3E',cvlan:'1050',ultimo_comentario:'Sin servicio de voz y datos. Alarma LOS activa en NMS.',problema_reporte:'ALARMA LOS - SIN SERVICIO',dias_transcurridos:'17',area_resolutoria:'UPS',severidad:2},
+  {id_averia:'28468800',area:'AREA 2',zona:'UNARE',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014355678',fecha_reporte:'25/05/2026 10:30',nombre:'VICTOR HERNANDEZ',direccion:'SECTOR CURAGUA BLOQUE 5 APTO 2B',olt:'unr-olt-01',ip:'10125180112',tarjeta:'H903GPSF',plan:'ABA ULTRA 300/150',slot:'4',puerto:'9',ont_id:'22',fat:'55 EG8145V5',serial:'4857544336J1K2L3',cvlan:'1320',ultimo_comentario:'Sin servicio. Posible daño en cable drop por obras en la zona.',problema_reporte:'CABLE DROP DAÑADO',dias_transcurridos:'12',area_resolutoria:'UPS',severidad:4},
+  {id_averia:'28482122',area:'AREA 8',zona:'EL GURI',parroquia:'EL GURI',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014368901',fecha_reporte:'30/05/2026 14:00',nombre:'PATRICIA MEDINA',direccion:'EL GURI SECTOR RESIDENCIAL CASA 23',olt:'gur-olt-01',ip:'10125210001',tarjeta:'H903GPSF',plan:'ABA ULTRA 60/30',slot:'1',puerto:'4',ont_id:'7',fat:'34 EG8145V5',serial:'4857544336M4N5O6',cvlan:'680',ultimo_comentario:'Falla en splitter de distribución. Afecta 8 abonados del sector.',problema_reporte:'FALLA SPLITTER',dias_transcurridos:'7',area_resolutoria:'UPS',severidad:3},
+  {id_averia:'28495444',area:'AREA 7',zona:'PURTO ORDAZ',parroquia:'UNARE',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014382234',fecha_reporte:'03/06/2026 09:15',nombre:'LUIS FERNANDO GARCIA',direccion:'PUERTO ORDAZ ALTA VISTA NORTE CALLE 8 CASA 15',olt:'por-olt-01',ip:'10125170001',tarjeta:'H901GPHF',plan:'ABA ULTRA 100/50',slot:'5',puerto:'6',ont_id:'9',fat:'101 EG8145V5',serial:'HWTCB4EC5E4F',cvlan:'1410',ultimo_comentario:'Sin servicio. Conector de roseta óptica sucio. Pendiente visita técnica.',problema_reporte:'CONECTOR SUCIO - SIN SERVICIO',dias_transcurridos:'3',area_resolutoria:'GSAC',severidad:4},
+  {id_averia:'28508766',area:'AREA 6',zona:'UPATA',parroquia:'UPATA',estatus:'PEND',tipo_problema:'NNV',descripcion:'NO NAVEGA',tipo_servicio:'ABA ULTRA',servicio_off_on:'SIN_SERVICIO',dac:'700',telefono:'7014395567',fecha_reporte:'04/06/2026 11:00',nombre:'ROSA ELENA SUAREZ',direccion:'UPATA AV LIBERTADOR EDIFICIO CENTRAL APTO 2A',olt:'upa-olt-01',ip:'10125190001',tarjeta:'H903GPSF',plan:'ABA ULTRA 300/150',slot:'2',puerto:'7',ont_id:'14',fat:'28 EG8145V5',serial:'4857544336P7Q8R9',cvlan:'990',ultimo_comentario:'Sin servicio. ONT reporta LOS. Posible daño en CTO por vandalismo.',problema_reporte:'CTO DAÑADA - VANDALISMO',dias_transcurridos:'2',area_resolutoria:'UPS',severidad:3},
+  {id_averia:'28522088',area:'AREA 5',zona:'EL CALLAO',parroquia:'EL CALLAO',estatus:'PEND',tipo_problema:'NL',descripcion:'NAVEGA LENTO',tipo_servicio:'ABA ULTRA',servicio_off_on:'CON SERVICIO',dac:'700',telefono:'7014408900',fecha_reporte:'05/06/2026 15:30',nombre:'JOSE MIGUEL BLANCO',direccion:'EL CALLAO SECTOR NORTE CALLE 2 CASA 8',olt:'cal-olt-01',ip:'10125200001',tarjeta:'H901GPHF',plan:'ABA ULTRA 60/30',slot:'3',puerto:'10',ont_id:'6',fat:'78 EG8145V5',serial:'HWTCB4EC6F5G',cvlan:'830',ultimo_comentario:'Velocidad muy baja. Potencia óptica degradada. Requiere medición OTDR.',problema_reporte:'VELOCIDAD DEGRADADA - OTDR',dias_transcurridos:'1',area_resolutoria:'GSAC',severidad:5}
+];
 
 /* ---- DEFAULT DB ---- */
 function getDefaultDB() {
   return {
     users: [
-      {user:'gerente',  pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas',       cuadrilla:''},
-      {user:'gzona1',   pass:'gzona123',   role:'gerente_zona',    name:'Ing. Pedro Martínez',    zona:'ALTAVISTA',    cuadrilla:''},
-      {user:'gzona2',   pass:'gzona123',   role:'gerente_zona',    name:'Ing. Ana Rodríguez',     zona:'UNARE',        cuadrilla:''},
-      {user:'tecnico1', pass:'tec123',     role:'tecnico',         name:'José Rangel',            zona:'ALTAVISTA',    cuadrilla:''},
-      {user:'tecnico2', pass:'tec123',     role:'tecnico',         name:'María Ávila',            zona:'UNARE',        cuadrilla:''},
-      {user:'tecnico3', pass:'tec123',     role:'tecnico',         name:'Carlos Pérez',           zona:'PURTO ORDAZ',  cuadrilla:''}
+      {user:'gerente', pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas', cuadrilla:''},
+      {user:'gzona1', pass:'gzona123', role:'gerente_zona', name:'Ing. Pedro Martínez', zona:'ALTAVISTA', cuadrilla:''},
+      {user:'gzona2', pass:'gzona123', role:'gerente_zona', name:'Ing. Ana Rodríguez', zona:'UNARE', cuadrilla:''},
+      {user:'tecnico1', pass:'tec123', role:'tecnico', name:'José Rangel', zona:'ALTAVISTA', cuadrilla:'Cuadrilla A'},
+      {user:'tecnico2', pass:'tec123', role:'tecnico', name:'María Ávila', zona:'UNARE', cuadrilla:'Cuadrilla B'},
+      {user:'tecnico3', pass:'tec123', role:'tecnico', name:'Carlos Pérez', zona:'PURTO ORDAZ', cuadrilla:'Cuadrilla C'}
     ],
-    averias: [],
-    ordenes: [],
+    averias: AVERIAS_SEED.map(a => ({...a, asignado_a: '', estado_gestion: 'Abierta', ot_asignada: ''})),
+    ordenes: [
+      {id:'OT-001',tipo:'Preventivo',actividad:'PE-01',zona:'ALTAVISTA',tecnico:'tecnico1',fat:'9228-06-01-01.11-FAT01',estado:'Pendiente',programada:true,fecha:'2026-06-06',detalle:'Inspección mensual de CTO/FAT en Conj. Res. Vista Hermosa',atten:'',resultado:'',planilla_data:{},fecha_inicio:'',fecha_cierre:''},
+      {id:'OT-002',tipo:'Correctivo',actividad:'MC-04',zona:'ALTAVISTA',tecnico:'tecnico1',fat:'209 MPX421R',estado:'En Proceso',programada:false,fecha:'2026-06-06',detalle:'Avería 28353077 — MODEM DAÑADO — FIAMA ALEJANDRA',atten:'',resultado:'',planilla_data:{},fecha_inicio:'2026-06-06 09:00',fecha_cierre:'',averia_id:'28353077'},
+      {id:'OT-003',tipo:'Preventivo',actividad:'PE-08',zona:'UNARE',tecnico:'tecnico2',fat:'unr-olt-01',estado:'Pendiente',programada:true,fecha:'2026-06-08',detalle:'Pruebas OTDR trimestral en segmentos feeder zona UNARE',atten:'',resultado:'',planilla_data:{},fecha_inicio:'',fecha_cierre:''}
+    ],
     historial: [],
-    odn_extra: [],
-    cuadrillas: []
+    odn_extra: []
   };
 }
 
@@ -949,47 +963,53 @@ let SESSION = null;
 let activeCharts = {};
 
 function loadDB() {
-  try {
-    const saved = localStorage.getItem('optinet_db_v2');
-    if (saved) {
+  // Try new key first, then migrate from old key
+  let saved = localStorage.getItem('optinet_db_v1');
+  if (!saved) {
+    const oldSaved = localStorage.getItem('gpon_db_v3');
+    if (oldSaved) {
+      saved = oldSaved;
+      console.log('Migrating data from gpon_db_v3 to optinet_db_v1');
+    }
+  }
+  if (saved) {
+    try {
       DB = JSON.parse(saved);
-      // Guarantee required collections
-      if (!DB.users)      DB.users      = [];
-      if (!DB.averias)    DB.averias    = [];
-      if (!DB.ordenes)    DB.ordenes    = [];
-      if (!DB.historial)  DB.historial  = [];
-      if (!DB.odn_extra)  DB.odn_extra  = [];
-      if (!DB.cuadrillas) DB.cuadrillas = [];
-      // Migrate old role names
-      DB.users = DB.users.map(u =>
-        u.role === 'admin' ? {...u, role:'gerente_general'} : u
-      );
-      // Always ensure the 6 demo users exist (add if missing, never overwrite real users)
-      const demos = getDefaultDB().users;
-      demos.forEach(demo => {
-        if (!DB.users.find(u => u.user === demo.user)) {
-          DB.users.push(demo);
-        }
+      // Ensure all required keys exist
+      const def = getDefaultDB();
+      if (!DB.users || DB.users.length === 0) DB.users = def.users;
+      if (!DB.averias) DB.averias = def.averias;
+      if (!DB.ordenes) DB.ordenes = def.ordenes;
+      if (!DB.historial) DB.historial = [];
+      if (!DB.odn_extra) DB.odn_extra = [];
+      // Migrate old 'admin' role to 'gerente_general'
+      DB.users = DB.users.map(u => {
+        if (u.role === 'admin') return {...u, role: 'gerente_general'};
+        return u;
       });
-      // Ensure averias have required fields
+      // Ensure gerente_general exists
+      if (!DB.users.find(u => u.role === 'gerente_general')) {
+        DB.users.unshift({user:'gerente', pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas', cuadrilla:''});
+      }
+      // Ensure averias have estado_gestion field
       DB.averias = DB.averias.map(a => ({
         ...a,
         estado_gestion: a.estado_gestion || 'Abierta',
-        asignado_a:     a.asignado_a     || '',
-        ot_asignada:    a.ot_asignada    || ''
+        asignado_a: a.asignado_a || '',
+        ot_asignada: a.ot_asignada || ''
       }));
-    } else {
+    } catch(e) {
+      console.error('Error loading DB:', e);
       DB = getDefaultDB();
     }
-  } catch(e) {
-    console.error('DB load error:', e);
+  } else {
     DB = getDefaultDB();
   }
-  saveDB();
+  saveDB(); // Save with new key
 }
 
 function saveDB() {
-  localStorage.setItem('optinet_db_v2', JSON.stringify(DB));
+  localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
 }
 
 /* ============================================================
@@ -1011,10 +1031,6 @@ function doLogin() {
   };
   document.getElementById('header-role').textContent = roleLabels[found.role] || found.role;
   buildNav();
-  // Default view based on role
-  const defaultViews = { gerente_general: 'dashboard', gerente_zona: 'dashboard', tecnico: 'averias-tec' };
-  const firstNav = { gerente_general: 'dashboard', gerente_zona: 'dashboard', tecnico: 'averias-tec' };
-  renderView(firstNav[found.role] || 'dashboard');
 }
 
 function doLogout() {
@@ -1039,8 +1055,8 @@ const NAV_ADMIN = [
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
 ];
 const NAV_TECNICO = [
-  { id: 'averias-tec', label: 'Mis Averías', icon: iconAlert(), section: 'Trabajo', badge: () => DB.averias.filter(a=>a.asignado_a===SESSION.user && a.estado_gestion==='Abierta').length },
   { id: 'mis-ordenes', label: 'Mis Órdenes', icon: iconClipboard(), section: 'Trabajo', badge: () => DB.ordenes.filter(o=>o.tecnico===SESSION.user && o.estado!=='Completada').length },
+  { id: 'averias-tec', label: 'Averías', icon: iconAlert(), section: 'Trabajo' },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' }
 ];
 const NAV_GERENTE_ZONA = [
@@ -1435,14 +1451,14 @@ function renderOrdenesAdmin(c) {
         </div>
         <div class="form-col">
           <label>Zona</label>
-          <select id="ot-zona" onchange="updateOTZonaFilter()">
+          <select id="ot-zona" onchange="updateOTAveriasFilter()">
             ${ZONES.map(z=>`<option>${z}</option>`).join('')}
           </select>
         </div>
         <div class="form-col">
-          <label>Técnico / Cuadrilla Asignado</label>
+          <label>Técnico Asignado</label>
           <select id="ot-tec">
-            ${(()=>{ const z=ZONES[0]; const ts=DB.users.filter(u=>(u.role==='tecnico'||u.role==='gerente_zona')&&u.zona===z); return ts.length?ts.map(t=>`<option value="${t.user}">${t.name}${t.cuadrilla?' · '+t.cuadrilla:''}</option>`).join(''):tecs.map(t=>`<option value="${t.user}">${t.name} · ${t.zona}</option>`).join(''); })()}
+            ${tecs.map(t=>`<option value="${t.user}">${t.name} · ${t.zona}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -1548,22 +1564,6 @@ function updateOTForm() {
   document.getElementById('ot-actividad-block').classList.toggle('hidden', tipo === 'Correctivo');
   document.getElementById('ot-averia-block').classList.toggle('hidden', tipo !== 'Correctivo');
   document.getElementById('ot-prog-row').classList.toggle('hidden', tipo === 'Correctivo');
-}
-
-function updateOTZonaFilter() {
-  const zona = document.getElementById('ot-zona').value;
-  // Update technician list to only show techs in selected zone
-  const tecSel = document.getElementById('ot-tec');
-  if (tecSel) {
-    const tecsFiltrados = DB.users.filter(u => (u.role==='tecnico'||u.role==='gerente_zona') && (!zona || u.zona===zona));
-    if (tecsFiltrados.length) {
-      tecSel.innerHTML = tecsFiltrados.map(t=>`<option value="${t.user}">${t.name}${t.cuadrilla?' · '+t.cuadrilla:''} (${t.zona})</option>`).join('');
-    } else {
-      tecSel.innerHTML = '<option value="">— Sin técnicos en esta zona —</option>';
-    }
-  }
-  // Update averias filter
-  updateOTAveriasFilter();
 }
 
 function updateOTAveriasFilter() {
@@ -1781,161 +1781,42 @@ function exportHistorial() {
    USUARIOS (ADMIN)
    ============================================================ */
 function renderUsuarios(c) {
-  const cuadrillas = DB.cuadrillas || [];
-  const roleLabel = { gerente_general:'Gerente General', gerente_zona:'Gerente de Zona', tecnico:'Técnico' };
   c.innerHTML = `
   <div class="page-header">
-    <div class="page-title">Usuarios, Roles y Cuadrillas</div>
+    <div class="page-title">Gestión de Usuarios y Roles</div>
   </div>
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchUsuTab(this,'usuarios')">Usuarios</button>
-    <button class="tab-btn" onclick="switchUsuTab(this,'cuadrillas')">Cuadrillas</button>
-  </div>
-  <div id="usu-tab-usuarios">
-    <div class="card">
-      <div class="card-header"><div class="card-title">Crear Nuevo Usuario</div></div>
-      <div class="form-row">
-        <div class="form-col"><label>Nombre Completo</label><input id="u-nombre" placeholder="Nombre y apellido"></div>
-        <div class="form-col"><label>Usuario</label><input id="u-user" placeholder="usuario"></div>
-        <div class="form-col"><label>Contraseña</label><input type="password" id="u-pass" placeholder="contraseña"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-col"><label>Rol</label><select id="u-role"><option value="tecnico">Técnico</option><option value="gerente_zona">Gerente de Zona</option></select></div>
-        <div class="form-col"><label>Zona Asignada</label><select id="u-zona">${ZONES.map(z=>`<option>${z}</option>`).join('')}</select></div>
-        <div class="form-col"><label>Cuadrilla (opcional)</label>
-          <select id="u-cuadrilla-sel">
-            <option value="">— Sin cuadrilla —</option>
-            ${cuadrillas.map(cq=>`<option value="${cq.id}">${cq.nombre} (${cq.zona})</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-green" onclick="crearUsuario()">${iconPlus()} Crear Usuario</button>
-      </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Crear Nuevo Técnico</div></div>
+    <div class="form-row">
+      <div class="form-col"><label>Nombre Completo</label><input id="u-nombre" placeholder="Nombre y apellido"></div>
+      <div class="form-col"><label>Usuario</label><input id="u-user" placeholder="usuario"></div>
+      <div class="form-col"><label>Contraseña</label><input type="password" id="u-pass" placeholder="contraseña"></div>
     </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Usuarios Registrados</div></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Zona</th><th>Cuadrilla</th><th>Acciones</th></tr></thead>
-          <tbody>${DB.users.map(u=>`<tr>
-            <td><strong>${u.name}</strong></td>
-            <td>${u.user}</td>
-            <td><span class="pill ${u.role==='gerente_general'?'pill-prog':u.role==='gerente_zona'?'pill-cyan':'pill-prev'}">${roleLabel[u.role]||u.role}</span></td>
-            <td>${u.zona}</td>
-            <td>${u.cuadrilla||'—'}</td>
-            <td>${u.role!=='gerente_general'?`<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`:'—'}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>
+    <div class="form-row">
+      <div class="form-col"><label>Rol</label><select id="u-role"><option value="tecnico">Técnico</option><option value="gerente_zona">Gerente de Zona</option></select></div>
+      <div class="form-col"><label>Zona Asignada</label><select id="u-zona">${ZONES.map(z=>`<option>${z}</option>`).join('')}</select></div>
+      <div class="form-col"><label>Cuadrilla</label><input id="u-cuadrilla" placeholder="Ej: Cuadrilla A"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-green" onclick="crearUsuario()">${iconPlus()} Crear Usuario</button>
     </div>
   </div>
-  <div id="usu-tab-cuadrillas" class="hidden">
-    <div class="card">
-      <div class="card-header"><div class="card-title">Crear Nueva Cuadrilla</div></div>
-      <div class="form-row">
-        <div class="form-col"><label>Nombre de la Cuadrilla</label><input id="cq-nombre" placeholder="Ej: Cuadrilla A — Fibra"></div>
-        <div class="form-col"><label>Zona</label><select id="cq-zona">${ZONES.map(z=>`<option>${z}</option>`).join('')}</select></div>
-        <div class="form-col"><label>Líder (Técnico)</label>
-          <select id="cq-lider">
-            <option value="">— Seleccionar líder —</option>
-            ${DB.users.filter(u=>u.role==='tecnico').map(t=>`<option value="${t.user}">${t.name} (${t.zona})</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-green" onclick="crearCuadrilla()">${iconPlus()} Crear Cuadrilla</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Cuadrillas Registradas</div></div>
-      ${cuadrillas.length===0?'<p style="color:var(--txt-muted);padding:8px">No hay cuadrillas registradas. Crea la primera arriba.</p>':
-        cuadrillas.map(cq=>{
-          const lider = DB.users.find(u=>u.user===cq.lider);
-          const miembros = DB.users.filter(u=>u.cuadrilla===cq.id);
-          const tecsSinCuadrilla = DB.users.filter(u=>u.role==='tecnico'&&(!u.cuadrilla||u.cuadrilla===cq.id)&&u.zona===cq.zona);
-          return `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--cyan)">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-              <div>
-                <div style="font-size:14px;font-weight:800">${cq.nombre}</div>
-                <div style="font-size:12px;color:var(--txt-muted)">Zona: ${cq.zona} · Líder: ${lider?lider.name:'Sin asignar'} · ${miembros.length} miembro(s)</div>
-              </div>
-              <button class="btn btn-sm btn-red" onclick="eliminarCuadrilla('${cq.id}')">${iconX()} Eliminar</button>
-            </div>
-            <div style="margin-top:10px">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--txt-muted);margin-bottom:6px">Miembros:</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-                ${miembros.map(m=>`<span style="background:#E3F2FD;color:var(--blue);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">
-                  ${m.name} ${cq.lider===m.user?'<span style=\'color:var(--orange)\'>★ Líder</span>':''}
-                  <button onclick="removerDeCuadrilla('${m.user}','${cq.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;margin-left:4px">✕</button>
-                </span>`).join('')}
-                ${miembros.length===0?'<span style="color:var(--txt-muted);font-size:12px">Sin miembros aún</span>':''}
-              </div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <select id="add-tec-${cq.id}" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px">
-                  <option value="">+ Agregar técnico...</option>
-                  ${tecsSinCuadrilla.filter(t=>!miembros.find(m=>m.user===t.user)).map(t=>`<option value="${t.user}">${t.name}</option>`).join('')}
-                </select>
-                <button class="btn btn-sm btn-primary" onclick="agregarACuadrilla('${cq.id}')">Agregar</button>
-              </div>
-            </div>
-          </div>`;
-        }).join('')
-      }
+  <div class="card">
+    <div class="card-header"><div class="card-title">Usuarios Registrados</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Zona</th><th>Cuadrilla</th><th>Acciones</th></tr></thead>
+        <tbody>${DB.users.map(u=>`<tr>
+          <td><strong>${u.name}</strong></td>
+          <td>${u.user}</td>
+          <td><span class="pill ${u.role==='gerente_general'?'pill-prog':u.role==='gerente_zona'?'pill-moder':'pill-prev'}">${u.role==='gerente_general'?'Gerente General':u.role==='gerente_zona'?'Gerente de Zona':'Técnico'}</span></td>
+          <td>${u.zona}</td>
+          <td>${u.cuadrilla||'—'}</td>
+          <td>${u.role!=='gerente_general' && u.role!=='gerente_zona'?`<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`:'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
     </div>
   </div>`;
-}
-
-function switchUsuTab(btn,tab) {
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  ['usuarios','cuadrillas'].forEach(t=>document.getElementById(`usu-tab-${t}`).classList.toggle('hidden',t!==tab));
-}
-
-function crearCuadrilla() {
-  const nombre = document.getElementById('cq-nombre').value.trim();
-  const zona   = document.getElementById('cq-zona').value;
-  const lider  = document.getElementById('cq-lider').value;
-  if (!nombre) { alert('El nombre de la cuadrilla es requerido'); return; }
-  if (!DB.cuadrillas) DB.cuadrillas = [];
-  const id = 'cq-' + Date.now();
-  DB.cuadrillas.push({ id, nombre, zona, lider });
-  // Assign lider to cuadrilla
-  if (lider) { const u = DB.users.find(x=>x.user===lider); if(u) u.cuadrilla = id; }
-  saveDB();
-  renderView('usuarios');
-  setTimeout(()=>{ const btn=document.querySelector('.tab-btn:nth-child(2)'); if(btn) btn.click(); },100);
-}
-
-function eliminarCuadrilla(id) {
-  if (!confirm('¿Eliminar esta cuadrilla? Los técnicos asignados quedarán sin cuadrilla.')) return;
-  if (!DB.cuadrillas) DB.cuadrillas = [];
-  DB.cuadrillas = DB.cuadrillas.filter(c=>c.id!==id);
-  DB.users.forEach(u=>{ if(u.cuadrilla===id) u.cuadrilla=''; });
-  saveDB();
-  renderView('usuarios');
-}
-
-function agregarACuadrilla(cqId) {
-  const sel = document.getElementById(`add-tec-${cqId}`);
-  const userVal = sel?.value;
-  if (!userVal) { alert('Selecciona un técnico'); return; }
-  const u = DB.users.find(x=>x.user===userVal);
-  if (u) u.cuadrilla = cqId;
-  saveDB();
-  renderView('usuarios');
-  setTimeout(()=>{ const btn=document.querySelector('.tab-btn:nth-child(2)'); if(btn) btn.click(); },100);
-}
-
-function removerDeCuadrilla(userVal, cqId) {
-  const u = DB.users.find(x=>x.user===userVal);
-  if (u) u.cuadrilla = '';
-  // If this was the lider, clear it
-  const cq = (DB.cuadrillas||[]).find(c=>c.id===cqId);
-  if (cq && cq.lider===userVal) cq.lider = '';
-  saveDB();
-  renderView('usuarios');
-  setTimeout(()=>{ const btn=document.querySelector('.tab-btn:nth-child(2)'); if(btn) btn.click(); },100);
 }
 
 function crearUsuario() {
@@ -1944,10 +1825,9 @@ function crearUsuario() {
   if (!user || !pass) { alert('Usuario y contraseña son requeridos'); return; }
   if (DB.users.find(u => u.user === user)) { alert('Ese usuario ya existe'); return; }
   const newRole = document.getElementById('u-role')?.value || 'tecnico';
-  const cqSel = document.getElementById('u-cuadrilla-sel')?.value || '';
-  DB.users.push({ user, pass, role: newRole, name: document.getElementById('u-nombre').value || user, zona: document.getElementById('u-zona').value, cuadrilla: cqSel });
+  DB.users.push({ user, pass, role: newRole, name: document.getElementById('u-nombre').value || user, zona: document.getElementById('u-zona').value, cuadrilla: document.getElementById('u-cuadrilla').value });
   saveDB();
-  alert('Usuario creado exitosamente');
+  alert('Técnico creado exitosamente');
   renderView('usuarios');
 }
 
@@ -1968,7 +1848,7 @@ function renderCarga(c) {
   </div>
   <div class="card">
     <div class="card-header"><div class="card-title">Cargar Tabla de Averías</div></div>
-    <p style="font-size:13px;color:var(--txt-muted);margin-bottom:12px">Archivo Excel CANTV — formato reconocido automáticamente. Columnas clave: <strong>id_averia, nombre central (zona), telefono, contacto, persona_reporta, fecha_reporte, nombre, direccion, olt, fat, plan, slot, puerto, ont_id, serial, tipo_problema, descripcion, dias transcurrido desde la apertura</strong></p>
+    <p style="font-size:13px;color:var(--txt-muted);margin-bottom:12px">Archivo Excel con columnas: id_averia, zona, nombre, descripcion, tipo_problema, tipo_servicio, telefono, direccion, olt, fat, plan, slot, puerto, ont_id, serial, ultimo_comentario</p>
     <label class="upload-box" for="file-av">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
       <p style="margin-top:8px;font-size:14px;color:var(--txt-muted)">Haz clic para seleccionar archivo Excel (.xlsx)</p>
@@ -2002,47 +1882,31 @@ function cargarAverias(input) {
     try {
       const wb = XLSX.read(e.target.result, {type:'binary'});
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      let added = 0, updated = 0;
+      let added = 0;
       rows.forEach(row => {
-        // id_averia can be numeric in Excel — round to avoid decimals
-        const rawId = row.id_averia || row['id_averia'] || '';
-        const id = String(typeof rawId === 'number' ? Math.round(rawId) : rawId).trim();
-        if (!id || id === 'nan' || id === '0') return;
+        const id = String(row.id_averia || row['id_averia'] || '').trim();
+        if (!id || DB.averias.find(a => a.id_averia === id)) return;
         const zona = (row['nombre central'] || row.zona || '').trim().toUpperCase();
         const tp = (row.tipo_problema || '').trim().toUpperCase();
         const cat = FAULT_CATEGORIES[tp] || FAULT_CATEGORIES['NNV'];
-        // telefono (col 14) y contacto (col 17) — ambos pueden ser numéricos en Excel
-        const telRaw = row.telefono || '';
-        const conRaw = row.contacto || '';
-        const avData = {
+        DB.averias.push({
           id_averia: id, area: row.area||'', zona, parroquia: row.parroquia||'',
           estatus: row.estatus||'PEND', tipo_problema: tp, descripcion: row.descripcion||'',
           tipo_servicio: row.tipo_servicio||'ABA ULTRA', servicio_off_on: row.servicio_off_on||'SIN_SERVICIO',
-          dac: String(row.dac||''),
-          telefono: String(typeof telRaw==='number' ? Math.round(telRaw) : telRaw),
-          contacto:  String(typeof conRaw==='number' ? Math.round(conRaw) : conRaw),
-          persona_reporta: String(row.persona_reporta||''),
-          fecha_reporte: String(row.fecha_reporte||''),
+          dac: String(row.dac||''), telefono: String(row.telefono||''), fecha_reporte: String(row.fecha_reporte||''),
           nombre: row.nombre||'', direccion: row.direccion||'', olt: row.olt||'', ip: String(row.ip||''),
           tarjeta: row.tarjeta||'', plan: row.plan||'', slot: String(row.slot||''), puerto: String(row.puerto||''),
           ont_id: String(row.ont_id||''), fat: String(row.fat||''), serial: String(row.serial||''),
           cvlan: String(row.cvlan||''), ultimo_comentario: row.ultimo_comentario||'',
-          problema_reporte: row.problema_reporte||'',
-          dias_transcurridos: String(row['dias transcurrido desde la apertura']||row.dias_transcurridos||'0'),
-          area_resolutoria: row.area_resolutoria||'', severidad: cat.sev
-        };
-        const existing = DB.averias.find(a => a.id_averia === id);
-        if (existing) {
-          Object.assign(existing, avData); // update data fields, preserve estado_gestion/asignado_a/ot_asignada
-          updated++;
-        } else {
-          DB.averias.push({...avData, estado_gestion: 'Abierta', asignado_a: '', ot_asignada: ''});
-          added++;
-        }
+          problema_reporte: row.problema_reporte||'', dias_transcurridos: String(row['dias transcurrido desde la apertura']||''),
+          area_resolutoria: row.area_resolutoria||'', severidad: cat.sev,
+          estado_gestion: 'Abierta', asignado_a: '', ot_asignada: ''
+        });
+        added++;
       });
-      addHistorial('carga_datos', {tipo:'averias', count: added, updated});
+      addHistorial('carga_datos', {tipo:'averias', count: added});
       saveDB();
-      document.getElementById('msg-av').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} averías nuevas · ${updated} actualizadas. Total: ${DB.averias.length}</div>`;
+      document.getElementById('msg-av').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} averías cargadas exitosamente. Los KPIs se actualizaron.</div>`;
     } catch(err) {
       document.getElementById('msg-av').innerHTML = `<div class="alert alert-err">Error al leer el archivo: ${err.message}</div>`;
     }
@@ -2516,19 +2380,6 @@ function cerrarOTCorrectiva(otId) {
   const accion = document.getElementById('pl-accion')?.value;
   if (!causa || !accion) { alert('Por favor complete la causa raíz y la acción correctiva.'); return; }
   const o = DB.ordenes.find(x => x.id === otId);
-  if (!o) return;
-  // CUADRILLA RESTRICTION: if averia has cuadrilla, only the lider can close
-  if (o.averia_id) {
-    const av = DB.averias.find(a => a.id_averia === o.averia_id);
-    if (av && av.cuadrilla_asignada) {
-      const cq = (DB.cuadrillas||[]).find(c=>c.id===av.cuadrilla_asignada);
-      if (cq && cq.lider && cq.lider !== SESSION.user) {
-        const lider = DB.users.find(u=>u.user===cq.lider);
-        alert(`Solo el líder de cuadrilla puede cerrar este reporte.\nLíder: ${lider?.name||cq.lider} — Cuadrilla: ${cq.nombre}`);
-        return;
-      }
-    }
-  }
   const attDespues = document.getElementById('pl-att-despues')?.value || '';
   const horaLlegada = document.getElementById('pl-llegada')?.value || '';
   const planilla = {
@@ -2862,6 +2713,11 @@ function verAbonado(r) {
         ${r.OBSERVACION ? `<div class="odn-detail-item"><label>Observación</label><span>${r.OBSERVACION}</span></div>` : ''}
       </div>
     </div>
+    ${avs.length ? `<div class="alert alert-warn" style="margin-top:12px">
+      <div><strong>Averías activas en este FAT:</strong><br>
+      ${avs.map(a=>`${a.id_averia} — ${a.nombre} — ${a.descripcion}`).join('<br>')}
+      </div>
+    </div>` : ''}
   `);
 }
 
@@ -2950,6 +2806,7 @@ function selectODNSub(r, el) {
         <div class="odn-detail-item"><label>Caja Derivación</label><span style="font-size:11px">${r.ID_CAJA_DERIV}</span></div>
         <div class="odn-detail-item"><label>Coordenadas</label><span>${r.LATITUD}, ${r.LONGITUD}</span></div>
       </div>
+      ${avs.length ? `<div class="alert alert-warn" style="margin-top:12px"><strong>Averías activas:</strong> ${avs.map(a=>a.id_averia+' — '+a.descripcion).join(', ')}</div>` : ''}
     </div>`;
 }
 
@@ -3064,33 +2921,16 @@ function renderAveriasContent() {
   ['abiertas','cerradas'].forEach(estado => {
     const isAbierta = estado === 'abiertas';
     let items = DB.averias.filter(a => isAbierta ? a.estado_gestion === 'Abierta' : a.estado_gestion === 'Cerrada');
-    // Zona: for gerente_zona always restrict to their zone
-    const zonaFiltroAct = SESSION.role === 'gerente_zona' ? SESSION.zona : zona;
-    if (zonaFiltroAct) items = items.filter(a => a.zona === zonaFiltroAct);
+    if (zona) items = items.filter(a => a.zona === zona);
     if (sev)  items = items.filter(a => String(a.severidad) === sev);
     if (tipo) items = items.filter(a => a.tipo_problema === tipo);
     if (search) items = items.filter(a => [a.id_averia,a.nombre,a.fat,a.descripcion,a.direccion].join(' ').toLowerCase().includes(search));
+    // Sort by severity then date
     items.sort((a,b) => (a.severidad||5) - (b.severidad||5));
     const el = document.getElementById(`av-content-${estado}`);
     if (!el) return;
-    if (isAbierta) {
-      const sinAsignar = items.filter(a => !a.asignado_a);
-      const asignadas  = items.filter(a => !!a.asignado_a);
-      let html = '';
-      if (!sinAsignar.length && !asignadas.length) {
-        html = '<div class="card"><p style="color:var(--txt-muted)">No hay averías abiertas sin asignar con los filtros aplicados.</p></div>';
-      } else {
-        html += sinAsignar.map(a => renderAveriaCard(a, true)).join('');
-        if (asignadas.length) {
-          html += `<div style="margin-top:16px;padding:6px 0 4px;font-size:12px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.5px;border-top:1px solid var(--border)">Ya asignadas — ${asignadas.length}</div>`;
-          html += asignadas.map(a => renderAveriaCard(a, true)).join('');
-        }
-      }
-      el.innerHTML = html;
-    } else {
-      if (!items.length) { el.innerHTML = '<div class="card"><p style="color:var(--txt-muted)">No hay averías cerradas con los filtros aplicados.</p></div>'; return; }
-      el.innerHTML = items.map(a => renderAveriaCard(a, true)).join('');
-    }
+    if (!items.length) { el.innerHTML = '<div class="card"><p style="color:var(--txt-muted)">No hay averías en esta categoría con los filtros aplicados.</p></div>'; return; }
+    el.innerHTML = items.map(a => renderAveriaCard(a, true)).join('');
   });
 }
 
@@ -3251,25 +3091,21 @@ function actualizarBarraMasiva() {
 function asignarMasivo() {
   if (_avSeleccionadas.size === 0) { alert('Selecciona al menos una avería.'); return; }
   const tecUser = document.getElementById('bulk-tec-select')?.value;
-  if (!tecUser) { alert('Selecciona un técnico o cuadrilla para asignar.'); return; }
+  if (!tecUser) { alert('Selecciona un técnico para asignar.'); return; }
   const tec = DB.users.find(u => u.user === tecUser);
   if (!tec) { alert('Técnico no encontrado.'); return; }
-  // Check if this tec belongs to a cuadrilla — if so, assign cuadrilla too
-  const cuadrilla = tec.cuadrilla ? (DB.cuadrillas||[]).find(c=>c.id===tec.cuadrilla) : null;
   let asignadas = 0;
   _avSeleccionadas.forEach(id => {
     const av = DB.averias.find(a => a.id_averia === id);
     if (av && av.estado_gestion === 'Abierta') {
       av.asignado_a = tecUser;
-      av.cuadrilla_asignada = cuadrilla ? cuadrilla.id : '';
-      addHistorial('averia_asignada', { id, tecnico: tecUser, zona: av.zona, cuadrilla: cuadrilla?.nombre||'' });
+      addHistorial('averia_asignada', { id, tecnico: tecUser, zona: av.zona });
       asignadas++;
     }
   });
   saveDB();
   deseleccionarTodas();
-  const msg = cuadrilla ? `${asignadas} avería(s) asignadas a ${tec.name} — Cuadrilla: ${cuadrilla.nombre}` : `${asignadas} avería(s) asignadas a ${tec.name}`;
-  alert(msg);
+  alert(`${asignadas} avería(s) asignadas a ${tec.name} exitosamente.`);
   renderView('averias-admin');
 }
 
@@ -3414,8 +3250,8 @@ function exportAverias() {
   let items = DB.averias;
   if (zona) items = items.filter(a => a.zona === zona);
   if (sev)  items = items.filter(a => String(a.severidad) === sev);
-  const ws = [['ID','Zona','Nombre','Teléfono (DAC)','Contacto Móvil','Persona Reporta','Dirección','Tipo Problema','Descripción','Servicio','Plan','OLT','Puerto','FAT','Serial','Días','Estado','Último Comentario']];
-  items.forEach(a => ws.push([a.id_averia,a.zona,a.nombre,a.telefono,a.contacto||'',a.persona_reporta||'',a.direccion,a.tipo_problema,a.descripcion,a.servicio_off_on,a.plan,a.olt,a.puerto,a.fat,a.serial,a.dias_transcurridos,a.estado_gestion,a.ultimo_comentario]));
+  const ws = [['ID','Zona','Nombre','Teléfono','Dirección','Tipo Problema','Descripción','Servicio','Plan','OLT','Puerto','FAT','Serial','Días','Estado','Último Comentario']];
+  items.forEach(a => ws.push([a.id_averia,a.zona,a.nombre,a.telefono,a.direccion,a.tipo_problema,a.descripcion,a.servicio_off_on,a.plan,a.olt,a.puerto,a.fat,a.serial,a.dias_transcurridos,a.estado_gestion,a.ultimo_comentario]));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'Averias');
   XLSX.writeFile(wb, `averias-gpon-${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -3426,299 +3262,9 @@ function exportAverias() {
    ============================================================ */
 function renderAveriasTecnico(c) {
   const mis = DB.averias.filter(a => a.asignado_a === SESSION.user);
+  const hoy = new Date().toISOString().slice(0,10);
   const hoyAvs = mis.filter(a => a.estado_gestion === 'Abierta');
   const resueltas = mis.filter(a => a.estado_gestion === 'Cerrada');
-  // Cuadrilla info
-  const miCuadrilla = SESSION.cuadrilla ? (DB.cuadrillas||[]).find(cq=>cq.id===SESSION.cuadrilla) : null;
-  const esLider = miCuadrilla && miCuadrilla.lider === SESSION.user;
-
-  c.innerHTML = `
-  <div class="page-header">
-    <div>
-      <div class="page-title">Mis Averías</div>
-      <div class="page-sub">Zona: ${SESSION.zona}${miCuadrilla?` · Cuadrilla: ${miCuadrilla.nombre}${esLider?' <span style="color:var(--orange);font-weight:700">★ Líder</span>':''}`:''}</div>
-    </div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-box"><div class="sv" style="color:var(--red)">${hoyAvs.filter(a=>a.severidad<=2).length}</div><div class="sl">Críticas/Mayores</div></div>
-    <div class="stat-box"><div class="sv" style="color:var(--orange)">${hoyAvs.filter(a=>a.severidad===3).length}</div><div class="sl">Moderadas</div></div>
-    <div class="stat-box"><div class="sv" style="color:var(--green-lt)">${hoyAvs.filter(a=>a.severidad>=4).length}</div><div class="sl">Menores</div></div>
-    <div class="stat-box"><div class="sv" style="color:var(--green)">${resueltas.length}</div><div class="sl">Resueltas</div></div>
-  </div>
-  ${miCuadrilla?`<div class="alert alert-info" style="margin-bottom:12px">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-    <div><strong>${miCuadrilla.nombre}</strong> · ${esLider?'Eres el <strong>líder</strong> — puedes cerrar reportes':'Solo el líder puede cerrar los reportes de cuadrilla'}</div>
-  </div>`:''}
-  ${hoyAvs.length === 0 ? '<div class="card"><p style="color:var(--txt-muted)">No tienes averías asignadas actualmente.</p></div>' :
-    hoyAvs.sort((a,b)=>(a.severidad||5)-(b.severidad||5)).map(a => {
-      const sev = SEV_LABELS[a.severidad] || SEV_LABELS[5];
-      const cat = FAULT_CATEGORIES[a.tipo_problema] || { label: a.tipo_problema || 'Sin clasificar', color:'#789' };
-      const ot = a.ot_asignada ? DB.ordenes.find(o => o.id === a.ot_asignada) : null;
-      const cqAv = a.cuadrilla_asignada ? (DB.cuadrillas||[]).find(c=>c.id===a.cuadrilla_asignada) : null;
-      return `<div class="averia-card sev-${a.severidad}">
-        <div class="averia-header">
-          <div style="flex:1">
-            <div class="averia-id">ID: ${a.id_averia} · ${a.fecha_reporte}</div>
-            <div class="averia-title">${a.nombre}</div>
-            <div class="averia-meta">
-              <span class="pill ${sev.pill}">${sev.label}</span>
-              &nbsp;<span style="font-size:11px;font-weight:700">${cat.label}</span>
-              &nbsp;· ${a.tipo_servicio}
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-            <span style="font-size:11px;color:${a.servicio_off_on==='SIN_SERVICIO'?'var(--red)':'var(--green)'};font-weight:700">${a.servicio_off_on==='SIN_SERVICIO'?'SIN SERVICIO':'CON SERVICIO'}</span>
-            <button class="btn btn-sm btn-outline" onclick="verDetalleAveriaTec('${a.id_averia}')">
-              Ver todos los datos
-            </button>
-          </div>
-        </div>
-        <div style="margin-top:8px;font-size:13px;line-height:1.7">
-          <span style="color:var(--txt-muted)">Dirección:</span> <strong>${a.direccion}</strong><br>
-          <span style="color:var(--txt-muted)">Tel:</span> <strong>${a.telefono}</strong>
-          ${a.contacto?` &nbsp;·&nbsp; <span style="color:var(--txt-muted)">Contacto:</span> <strong>${a.contacto}</strong>`:''}
-          ${a.persona_reporta?` &nbsp;·&nbsp; <span style="color:var(--txt-muted)">Reporta:</span> <strong>${a.persona_reporta}</strong>`:''}
-          <br>
-          <span style="color:var(--txt-muted)">Plan:</span> ${a.plan} &nbsp;·&nbsp;
-          <span style="color:var(--txt-muted)">OLT:</span> ${a.olt} &nbsp;·&nbsp;
-          <span style="color:var(--txt-muted)">Puerto:</span> ${a.puerto} &nbsp;·&nbsp;
-          <span style="color:var(--txt-muted)">FAT:</span> ${a.fat}
-          ${a.ultimo_comentario?`<br><span style="color:var(--txt-muted);font-style:italic;font-size:12px">${a.ultimo_comentario.slice(0,200)}${a.ultimo_comentario.length>200?'...':''}</span>`:''}
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px">
-          <span style="font-size:11px;color:var(--txt-muted)">Tiempo máx. respuesta: <strong style="color:var(--orange)">${sev.resp}</strong> &nbsp;·&nbsp; Resolución: <strong style="color:var(--red)">${sev.resol}</strong></span>
-          ${ot?`<span style="font-size:11px;color:var(--blue)">OT: ${ot.id} — ${ot.estado}</span>`:''}
-          ${cqAv?`<span style="font-size:11px;color:var(--txt-muted)">Cuadrilla: ${cqAv.nombre}</span>`:''}
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-orange btn-sm" onclick="abrirReporteTecnico('${a.id_averia}')">
-            📋 Iniciar / Reportar Trabajo
-          </button>
-          ${ot && ot.estado !== 'Completada' ? `<button class="btn btn-primary btn-sm" onclick="abrirPlanilla('${ot.id}')">Planilla Completa OT</button>` : ''}
-        </div>
-      </div>`;
-    }).join('')
-  }
-  ${resueltas.length ? `
-  <div style="margin-top:20px">
-    <div class="card-title" style="margin-bottom:12px;color:var(--green)">✓ Resueltas (${resueltas.length})</div>
-    ${resueltas.map(a => {
-      const sev = SEV_LABELS[a.severidad] || SEV_LABELS[5];
-      return `<div class="averia-card" style="border-left-color:var(--green);opacity:.85;cursor:pointer" onclick="verDetalleAveriaTec('${a.id_averia}')">
-        <div class="averia-header">
-          <div>
-            <div class="averia-id">ID: ${a.id_averia}</div>
-            <div class="averia-title">${a.nombre}</div>
-            <div class="averia-meta"><span class="pill ${sev.pill}">${sev.label}</span> · ${a.zona} · Cerrada: ${a.fecha_cierre||'—'}</div>
-            ${a.causa_raiz?`<div style="font-size:12px;color:var(--green);margin-top:4px">Causa raíz: ${a.causa_raiz}</div>`:''}
-          </div>
-          <span class="pill pill-done">Resuelta</span>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>` : ''}`;
-}
-
-/* Modal expandible de detalles de avería para técnico */
-function verDetalleAveriaTec(id) {
-  const a = DB.averias.find(x => x.id_averia === id);
-  if (!a) return;
-  const sev = SEV_LABELS[a.severidad] || SEV_LABELS[5];
-  const cat = FAULT_CATEGORIES[a.tipo_problema] || { label: a.tipo_problema || 'Sin clasificar' };
-  const ot = a.ot_asignada ? DB.ordenes.find(o => o.id === a.ot_asignada) : null;
-  showModal(`Avería ${a.id_averia} — Detalles Completos`, `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <span class="pill ${sev.pill}">${sev.label}</span>
-      <span class="pill ${a.estado_gestion==='Abierta'?'pill-pend':'pill-done'}">${a.estado_gestion}</span>
-      <span class="pill ${a.servicio_off_on==='SIN_SERVICIO'?'pill-crit':'pill-done'}">${a.servicio_off_on}</span>
-    </div>
-    <div class="odn-detail-grid">
-      <div class="odn-detail-item"><label>ID Avería</label><span>${a.id_averia}</span></div>
-      <div class="odn-detail-item"><label>Fecha Reporte</label><span>${a.fecha_reporte}</span></div>
-      <div class="odn-detail-item"><label>Zona / Parroquia</label><span>${a.zona}${a.parroquia?' / '+a.parroquia:''}</span></div>
-      <div class="odn-detail-item"><label>Nombre Cliente</label><span>${a.nombre}</span></div>
-      <div class="odn-detail-item"><label>Teléfono (DAC)</label><span>${a.telefono}</span></div>
-      ${a.contacto?`<div class="odn-detail-item"><label>Contacto Móvil</label><span>${a.contacto}</span></div>`:''}
-      ${a.persona_reporta?`<div class="odn-detail-item"><label>Persona que Reporta</label><span>${a.persona_reporta}</span></div>`:''}
-      <div class="odn-detail-item"><label>Dirección</label><span style="font-size:12px">${a.direccion}</span></div>
-      <div class="odn-detail-item"><label>Tipo Servicio</label><span>${a.tipo_servicio}</span></div>
-      <div class="odn-detail-item"><label>Plan</label><span>${a.plan}</span></div>
-      <div class="odn-detail-item"><label>Tipo Problema</label><span>${cat.label}</span></div>
-      <div class="odn-detail-item"><label>Descripción</label><span>${a.descripcion||a.problema_reporte||'—'}</span></div>
-      <div class="odn-detail-item"><label>OLT</label><span>${a.olt}</span></div>
-      <div class="odn-detail-item"><label>Tarjeta</label><span>${a.tarjeta}</span></div>
-      <div class="odn-detail-item"><label>Slot / Puerto</label><span>${a.slot} / ${a.puerto}</span></div>
-      <div class="odn-detail-item"><label>ONT ID</label><span>${a.ont_id}</span></div>
-      <div class="odn-detail-item"><label>FAT</label><span>${a.fat}</span></div>
-      <div class="odn-detail-item"><label>Serial ONT</label><span style="font-size:11px">${a.serial}</span></div>
-      <div class="odn-detail-item"><label>CVLAN</label><span>${a.cvlan}</span></div>
-      <div class="odn-detail-item"><label>IP OLT</label><span>${a.ip}</span></div>
-      <div class="odn-detail-item"><label>DAC</label><span>${a.dac}</span></div>
-      <div class="odn-detail-item"><label>Días Transcurridos</label><span style="color:${parseInt(a.dias_transcurridos)>30?'var(--red)':'inherit'}">${a.dias_transcurridos||'0'} días</span></div>
-      <div class="odn-detail-item"><label>Área Resolutoria</label><span>${a.area_resolutoria||'—'}</span></div>
-      <div class="odn-detail-item"><label>Tiempo máx. Respuesta</label><span style="color:var(--orange)">${sev.resp}</span></div>
-      <div class="odn-detail-item"><label>Tiempo máx. Resolución</label><span style="color:var(--red)">${sev.resol}</span></div>
-      ${ot?`<div class="odn-detail-item"><label>Orden de Trabajo</label><span>${ot.id} — ${ot.estado}</span></div>`:''}
-      ${a.causa_raiz?`<div class="odn-detail-item"><label>Causa Raíz</label><span>${a.causa_raiz}</span></div>`:''}
-      ${a.accion_correctiva?`<div class="odn-detail-item"><label>Acción Correctiva</label><span>${a.accion_correctiva}</span></div>`:''}
-      ${a.fecha_cierre?`<div class="odn-detail-item"><label>Fecha Cierre</label><span>${a.fecha_cierre}</span></div>`:''}
-    </div>
-    ${a.ultimo_comentario?`<div style="margin-top:12px"><strong>Último Comentario:</strong><br><span style="font-size:12px;color:var(--txt-muted);font-style:italic">${a.ultimo_comentario}</span></div>`:''}
-    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-      ${a.estado_gestion==='Abierta'?`<button class="btn btn-orange btn-sm" onclick="closeModal();abrirReporteTecnico('${a.id_averia}')">📋 Reportar Trabajo</button>`:''}
-      ${ot&&ot.estado!=='Completada'?`<button class="btn btn-primary btn-sm" onclick="closeModal();abrirPlanilla('${ot.id}')">Planilla Completa</button>`:''}
-    </div>
-  `);
-}
-
-/* Planilla básica de reporte para técnico desde averías */
-function abrirReporteTecnico(avId) {
-  const av = DB.averias.find(a => a.id_averia === avId);
-  if (!av) return;
-  const sev = SEV_LABELS[av.severidad] || SEV_LABELS[5];
-  const now = new Date().toLocaleString('es-VE');
-  const cqAv = av.cuadrilla_asignada ? (DB.cuadrillas||[]).find(c=>c.id===av.cuadrilla_asignada) : null;
-  const esLider = !cqAv || cqAv.lider === SESSION.user;
-
-  showModal(`Reporte de Trabajo — Avería ${avId}`,`
-    <div style="background:linear-gradient(90deg,var(--blue-dark),var(--blue));color:#fff;border-radius:10px;padding:12px 16px;margin-bottom:16px">
-      <div style="font-size:11px;opacity:.7">Técnico: ${SESSION.name} · ${now}</div>
-      <div style="font-size:15px;font-weight:800;margin:3px 0">${av.nombre}</div>
-      <div style="font-size:12px;opacity:.85">${av.direccion} · ${av.telefono}${av.contacto?' / '+av.contacto:''}</div>
-    </div>
-    <div style="font-size:12px;color:var(--txt-muted);margin-bottom:14px">
-      OLT: ${av.olt} · Puerto: ${av.puerto} · FAT: ${av.fat} · Plan: ${av.plan}
-      ${cqAv?` · Cuadrilla: <strong>${cqAv.nombre}</strong> ${esLider?'(Tú eres el líder)':'(Solo el líder puede cerrar)'}`:'' }
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Hora de Llegada al Sitio</label>
-        <input type="time" id="rpt-llegada" value="${new Date().toTimeString().slice(0,5)}">
-      </div>
-      <div class="form-col">
-        <label>Hora de Cierre / Finalización</label>
-        <input type="time" id="rpt-cierre">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Potencia Óptica ANTES (dBm)</label>
-        <input type="number" id="rpt-pot-antes" placeholder="-20.5" step="0.1">
-      </div>
-      <div class="form-col">
-        <label>Potencia Óptica DESPUÉS (dBm)</label>
-        <input type="number" id="rpt-pot-despues" placeholder="-20.5" step="0.1">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Causa Raíz Identificada *</label>
-        <select id="rpt-causa">
-          <option value="">— Seleccionar causa —</option>
-          <option>Cable drop dañado</option>
-          <option>ONT dañada / sin registro</option>
-          <option>Conector sucio / dañado</option>
-          <option>Splitter con falla</option>
-          <option>CTO/FAT dañada</option>
-          <option>Corte de fibra óptica</option>
-          <option>Falla en OLT/tarjeta</option>
-          <option>Problema de configuración</option>
-          <option>Problema de routing/DHCP</option>
-          <option>Alta atenuación por empalme</option>
-          <option>Daño por vandalismo</option>
-          <option>Otro (ver observaciones)</option>
-        </select>
-      </div>
-      <div class="form-col">
-        <label>Medidas Tomadas *</label>
-        <select id="rpt-accion">
-          <option value="">— Seleccionar acción —</option>
-          <option>Reemplazo de ONT</option>
-          <option>Reemplazo de cable drop</option>
-          <option>Limpieza de conectores</option>
-          <option>Empalme de fibra</option>
-          <option>Reemplazo de splitter</option>
-          <option>Reemplazo de CTO/FAT</option>
-          <option>Reconfiguración en OLT</option>
-          <option>Reset / reinicio de ONT</option>
-          <option>Escalado a nivel superior</option>
-          <option>Pendiente de materiales</option>
-          <option>Otro (ver observaciones)</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>¿Se restableció el servicio?</label>
-        <select id="rpt-restablecido">
-          <option value="Si">✅ Sí — Servicio restablecido</option>
-          <option value="Parcial">⚠️ Parcialmente restablecido</option>
-          <option value="No">❌ No — Requiere seguimiento</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Observaciones adicionales</label>
-        <textarea id="rpt-obs" rows="3" placeholder="Detalles del trabajo, materiales usados, condiciones del sitio..."></textarea>
-      </div>
-    </div>
-    ${!esLider?`<div class="alert alert-warn">Solo el líder <strong>${DB.users.find(u=>u.user===cqAv?.lider)?.name||''}</strong> puede cerrar este reporte. Tus datos serán guardados para revisión.</div>`:''}
-  `,`
-    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="guardarReporteTecnico('${avId}',${esLider})">${esLider?'✓ Cerrar y Guardar Reporte':'Guardar Avance (sin cerrar)'}</button>
-  `);
-}
-
-function guardarReporteTecnico(avId, puedeSerrar) {
-  const causa = document.getElementById('rpt-causa')?.value;
-  const accion = document.getElementById('rpt-accion')?.value;
-  if (!causa || !accion) { alert('Selecciona la causa raíz y la medida tomada'); return; }
-  const av = DB.averias.find(a => a.id_averia === avId);
-  if (!av) return;
-  const llegada = document.getElementById('rpt-llegada')?.value || '';
-  const cierre  = document.getElementById('rpt-cierre')?.value || '';
-  const potAntes = document.getElementById('rpt-pot-antes')?.value || '';
-  const potDespues = document.getElementById('rpt-pot-despues')?.value || '';
-  const restablecido = document.getElementById('rpt-restablecido')?.value || 'No';
-  const obs = document.getElementById('rpt-obs')?.value || '';
-  const hoy = new Date().toISOString().slice(0,10);
-  // Calculate MTTR if both times provided
-  let mttr = '';
-  if (llegada && cierre) {
-    const [lh,lm]=llegada.split(':').map(Number);
-    const [ch,cm]=cierre.split(':').map(Number);
-    const mins = (ch*60+cm) - (lh*60+lm);
-    if (mins > 0) mttr = `${Math.floor(mins/60)}h ${mins%60}m`;
-  }
-  // Save to averia
-  av.causa_raiz = causa;
-  av.accion_correctiva = accion;
-  av.reporte_tecnico = { causa, accion, potAntes, potDespues, llegada, cierre, mttr, restablecido, obs, fecha: hoy, tecnico: SESSION.name };
-  if (puedeSerrar) {
-    av.estado_gestion = 'Cerrada';
-    av.fecha_cierre = new Date().toLocaleString('es-VE');
-    // Close associated OT
-    if (av.ot_asignada) {
-      const ot = DB.ordenes.find(o=>o.id===av.ot_asignada);
-      if (ot) {
-        ot.estado = 'Completada';
-        ot.fecha_cierre = av.fecha_cierre;
-        ot.resultado = `${accion} — ${restablecido==='Si'?'Servicio restablecido':'Pendiente'}`;
-        if (potDespues) ot.atten = potDespues;
-        addHistorial('ot_completada', { ot: ot.id, tipo: 'Correctivo', causa, att: potDespues });
-      }
-    }
-    addHistorial('averia_cerrada', { id: avId, causa, zona: av.zona, tecnico: SESSION.user, mttr });
-    saveDB(); closeModal();
-    alert(`Reporte guardado. Avería ${avId} cerrada.${mttr?' MTTR: '+mttr:''} Servicio: ${restablecido}`);
-  } else {
-    addHistorial('reporte_parcial', { id: avId, tecnico: SESSION.user, causa, obs });
-    saveDB(); closeModal();
-    alert('Avance guardado. El líder de cuadrilla debe cerrar el reporte.');
-  }
-  renderView('averias-tec');
-}
 
   c.innerHTML = `
   <div class="page-header">
