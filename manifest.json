@@ -1,25 +1,15 @@
 {
-  "name": "OPTINET — Sistema Inteligente de Redes Ópticas",
-  "short_name": "OPTINET",
-  "description": "Sistema Inteligente de Operaciones, Monitoreo y Mantenimiento de Redes Ópticas",
+  "name": "Optinet — Sistema GPON CANTV",
+  "short_name": "Optinet",
+  "description": "Sistema Inteligente de Operaciones, Monitoreo y Mantenimiento de Redes Ópticas — CANTV ABA Ultra",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#001E5C",
-  "theme_color": "#0033A0",
+  "background_color": "#001A4D",
+  "theme_color": "#003087",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "icon.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "categories": ["utilities", "productivity"],
   "lang": "es",
