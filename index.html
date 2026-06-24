@@ -802,11 +802,16 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
     <button class="btn btn-primary btn-lg" onclick="doLogin()">Iniciar Sesión</button>
     <div class="login-hint">
-      <strong>Accesos de demostración:</strong><br>
-      gerente / gerente123 &nbsp;—&nbsp; Gerente General<br>
-      gzona1 / gzona123 &nbsp;—&nbsp; Gerente de Zona (ALTAVISTA)<br>
-      gzona2 / gzona123 &nbsp;—&nbsp; Gerente de Zona (UNARE)<br>
-      tecnico1 / tec123 &nbsp;—&nbsp; Técnico (ALTAVISTA)
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;color:var(--blue)">Accesos de demostración</div>
+      <strong>gerente</strong> / gerente123 &nbsp;—&nbsp; <span style="background:#E8EAF6;color:#3949AB;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Gerente Nacional</span><br>
+      <strong>gzona1</strong> / gzona123 &nbsp;—&nbsp; <span style="background:#E0F7FA;color:#006064;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Gerente Zona · ALTAVISTA</span><br>
+      <strong>gzona2</strong> / gzona123 &nbsp;—&nbsp; <span style="background:#E0F7FA;color:#006064;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Gerente Zona · UNARE</span><br>
+      <strong>tecnico1</strong> / tec123 &nbsp;—&nbsp; <span style="background:#E8F5E9;color:#1B5E20;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Técnico · ALTAVISTA</span><br>
+      <strong>tecnico2</strong> / tec123 &nbsp;—&nbsp; <span style="background:#E8F5E9;color:#1B5E20;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Técnico · UNARE</span><br>
+      <strong>tecnico3</strong> / tec123 &nbsp;—&nbsp; <span style="background:#E8F5E9;color:#1B5E20;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">Técnico · PURTO ORDAZ</span>
+    </div>
+    <div style="margin-top:10px;text-align:center">
+      <button onclick="localStorage.removeItem('optinet_db_v2');localStorage.removeItem('optinet_db_v1');localStorage.removeItem('gpon_db_v3');location.reload();" style="background:none;border:none;font-size:10px;color:var(--txt-muted);cursor:pointer;text-decoration:underline">¿Problemas para ingresar? Restablecer sesión</button>
     </div>
   </div>
 </div>
@@ -924,9 +929,12 @@ const AVERIAS_SEED = [];
 function getDefaultDB() {
   return {
     users: [
-      {user:'gerente', pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas', cuadrilla:''},
-      {user:'gzona1', pass:'gzona123', role:'gerente_zona', name:'Ing. Pedro Martínez', zona:'ALTAVISTA', cuadrilla:''},
-      {user:'gzona2', pass:'gzona123', role:'gerente_zona', name:'Ing. Ana Rodríguez', zona:'UNARE', cuadrilla:''}
+      {user:'gerente',  pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas',       cuadrilla:''},
+      {user:'gzona1',   pass:'gzona123',   role:'gerente_zona',    name:'Ing. Pedro Martínez',    zona:'ALTAVISTA',    cuadrilla:''},
+      {user:'gzona2',   pass:'gzona123',   role:'gerente_zona',    name:'Ing. Ana Rodríguez',     zona:'UNARE',        cuadrilla:''},
+      {user:'tecnico1', pass:'tec123',     role:'tecnico',         name:'José Rangel',            zona:'ALTAVISTA',    cuadrilla:''},
+      {user:'tecnico2', pass:'tec123',     role:'tecnico',         name:'María Ávila',            zona:'UNARE',        cuadrilla:''},
+      {user:'tecnico3', pass:'tec123',     role:'tecnico',         name:'Carlos Pérez',           zona:'PURTO ORDAZ',  cuadrilla:''}
     ],
     averias: [],
     ordenes: [],
@@ -941,54 +949,47 @@ let SESSION = null;
 let activeCharts = {};
 
 function loadDB() {
-  // Try new key first, then migrate from old key
-  let saved = localStorage.getItem('optinet_db_v1');
-  if (!saved) {
-    const oldSaved = localStorage.getItem('gpon_db_v3');
-    if (oldSaved) {
-      saved = oldSaved;
-      console.log('Migrating data from gpon_db_v3 to optinet_db_v1');
-    }
-  }
-  if (saved) {
-    try {
+  try {
+    const saved = localStorage.getItem('optinet_db_v2');
+    if (saved) {
       DB = JSON.parse(saved);
-      // Ensure all required keys exist
-      const def = getDefaultDB();
-      if (!DB.users || DB.users.length === 0) DB.users = def.users;
-      if (!DB.averias) DB.averias = def.averias;
-      if (!DB.ordenes) DB.ordenes = def.ordenes;
-      if (!DB.historial) DB.historial = [];
-      if (!DB.odn_extra) DB.odn_extra = [];
+      // Guarantee required collections
+      if (!DB.users)      DB.users      = [];
+      if (!DB.averias)    DB.averias    = [];
+      if (!DB.ordenes)    DB.ordenes    = [];
+      if (!DB.historial)  DB.historial  = [];
+      if (!DB.odn_extra)  DB.odn_extra  = [];
       if (!DB.cuadrillas) DB.cuadrillas = [];
-      // Migrate old 'admin' role to 'gerente_general'
-      DB.users = DB.users.map(u => {
-        if (u.role === 'admin') return {...u, role: 'gerente_general'};
-        return u;
+      // Migrate old role names
+      DB.users = DB.users.map(u =>
+        u.role === 'admin' ? {...u, role:'gerente_general'} : u
+      );
+      // Always ensure the 6 demo users exist (add if missing, never overwrite real users)
+      const demos = getDefaultDB().users;
+      demos.forEach(demo => {
+        if (!DB.users.find(u => u.user === demo.user)) {
+          DB.users.push(demo);
+        }
       });
-      // Ensure gerente_general exists
-      if (!DB.users.find(u => u.role === 'gerente_general')) {
-        DB.users.unshift({user:'gerente', pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas', cuadrilla:''});
-      }
-      // Ensure averias have estado_gestion field
+      // Ensure averias have required fields
       DB.averias = DB.averias.map(a => ({
         ...a,
         estado_gestion: a.estado_gestion || 'Abierta',
-        asignado_a: a.asignado_a || '',
-        ot_asignada: a.ot_asignada || ''
+        asignado_a:     a.asignado_a     || '',
+        ot_asignada:    a.ot_asignada    || ''
       }));
-    } catch(e) {
-      console.error('Error loading DB:', e);
+    } else {
       DB = getDefaultDB();
     }
-  } else {
+  } catch(e) {
+    console.error('DB load error:', e);
     DB = getDefaultDB();
   }
-  saveDB(); // Save with new key
+  saveDB();
 }
 
 function saveDB() {
-  localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
+  localStorage.setItem('optinet_db_v2', JSON.stringify(DB));
 }
 
 /* ============================================================
