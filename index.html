@@ -1153,7 +1153,7 @@ function initFirebaseSync() {
       document.querySelectorAll('.nav-badge').forEach(b => {
         const navId = b.closest('[data-nav]')?.dataset?.nav;
         if (navId) {
-          const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE:NAV_TECNICO)].find(n=>n.id===navId);
+          const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE_ZONA:NAV_TECNICO)].find(n=>n.id===navId);
           if (item?.badge) b.textContent = item.badge() || '';
         }
       });
@@ -1328,6 +1328,7 @@ const NAV_GERENTE_ZONA = [
   { id: 'averias-admin', label: 'Averías', icon: iconAlert(), section: 'Gestión', badge: () => DB.averias.filter(a=>a.estado_gestion==='Abierta' && a.zona===SESSION.zona).length },
   { id: 'historial', label: 'Historial', icon: iconHistory(), section: 'Gestión' },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' },
+  { id: 'usuarios', label: 'Usuarios', icon: iconUsers(), section: 'Administración' },
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
 ];
 
@@ -2099,7 +2100,10 @@ function exportHistorial() {
 function renderUsuarios(c) {
   c.innerHTML = `
   <div class="page-header">
-    <div class="page-title">Gestión de Usuarios y Roles</div>
+    <div>
+      <div class="page-title">Gestión de Usuarios y Roles</div>
+      <div class="page-sub">${SESSION.role === 'gerente_zona' ? 'Puedes crear técnicos y gerentes de zona en cualquier zona' : 'Administración global de usuarios'}</div>
+    </div>
   </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchUsrTab(this,'usuarios')">Usuarios</button>
@@ -2114,7 +2118,11 @@ function renderUsuarios(c) {
       <div class="form-col"><label>Contraseña</label><input type="password" id="u-pass" placeholder="contraseña"></div>
     </div>
     <div class="form-row">
-      <div class="form-col"><label>Rol</label><select id="u-role"><option value="tecnico">Técnico</option><option value="gerente_zona">Gerente de Zona</option></select></div>
+      <div class="form-col"><label>Rol</label><select id="u-role">
+        <option value="tecnico">Técnico</option>
+        <option value="gerente_zona">Gerente de Zona</option>
+        ${SESSION.role === 'gerente_general' ? '<option value="gerente_general">Gerente General</option>' : ''}
+      </select></div>
       <div class="form-col"><label>Zona Asignada</label>
         <div style="position:relative;display:inline-block;width:100%">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -2149,7 +2157,15 @@ function renderUsuarios(c) {
           <td><span class="pill ${u.role==='gerente_general'?'pill-prog':u.role==='gerente_zona'?'pill-moder':'pill-prev'}">${u.role==='gerente_general'?'Gerente General':u.role==='gerente_zona'?'Gerente de Zona':'Técnico'}</span></td>
           <td>${u.zona}</td>
           <td>${u.cuadrilla||'—'}</td>
-          <td>${u.role!=='gerente_general' && u.role!=='gerente_zona'?`<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`:'—'}</td>
+          <td>${
+            // Gerente General puede eliminar a cualquiera excepto a sí mismo
+            SESSION.role === 'gerente_general' && u.user !== SESSION.user
+              ? `<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`
+            // Gerente de Zona puede eliminar técnicos y gerentes de zona de cualquier zona (no gerente_general, no a sí mismo)
+            : SESSION.role === 'gerente_zona' && u.role !== 'gerente_general' && u.user !== SESSION.user
+              ? `<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`
+            : '—'
+          }</td>
         </tr>`).join('')}</tbody>
       </table>
     </div>
@@ -2397,6 +2413,10 @@ async function crearUsuario() {
   if (!user || !pass) { alert('Usuario y contraseña son requeridos'); return; }
   if (DB.users.find(u => u.user === user)) { alert('Ese usuario ya existe'); return; }
   const newRole = document.getElementById('u-role')?.value || 'tecnico';
+  // Gerente General no puede ser creado por gerente_zona
+  if (SESSION.role === 'gerente_zona' && newRole === 'gerente_general') {
+    alert('No tienes permiso para crear un Gerente General.'); return;
+  }
   const nombre = document.getElementById('u-nombre').value || user;
   const zona = document.getElementById('u-zona-search')?.value || document.getElementById('u-zona')?.value || '';
   const cuadrilla = document.getElementById('u-cuadrilla').value || '';
