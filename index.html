@@ -4656,13 +4656,59 @@ initApp();
 </script>
 
 <script>
-// PWA Service Worker registration
+// PWA Service Worker registration con detección automática de actualizaciones
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
-      .then(reg => console.log('SW registered'))
-      .catch(err => console.log('SW not available:', err));
+      .then(reg => {
+        console.log('[App] SW registrado, versión activa.');
+
+        // Detectar cuando hay una nueva versión esperando activarse
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Hay una nueva versión lista — mostrar notificación al usuario
+              mostrarNotificacionActualizacion();
+            }
+          });
+        });
+
+        // Verificar actualizaciones cada vez que el usuario vuelve a la app
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            reg.update().catch(() => {});
+          }
+        });
+      })
+      .catch(err => console.log('[App] SW no disponible:', err));
+
+    // Escuchar mensajes del SW (nueva versión activada)
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'SW_UPDATED') {
+        console.log('[App] Nueva versión activa:', event.data.version);
+        // Recargar silenciosamente para aplicar la nueva versión
+        window.location.reload();
+      }
+    });
   });
+}
+
+// Mostrar banner de actualización disponible
+function mostrarNotificacionActualizacion() {
+  // Evitar mostrar múltiples banners
+  if (document.getElementById('update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#0033A0;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:99999;font-size:14px;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
+  banner.innerHTML = `
+    <span>🔄 Nueva versión de Optinet disponible</span>
+    <div style="display:flex;gap:10px">
+      <button onclick="this.closest('#update-banner').remove()" style="background:transparent;color:#aac;border:1px solid #aac;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Después</button>
+      <button onclick="window.location.reload()" style="background:#00A9E0;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Actualizar ahora</button>
+    </div>`;
+  document.body.appendChild(banner);
 }
 
 // PWA install prompt
