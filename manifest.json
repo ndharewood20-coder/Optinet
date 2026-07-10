@@ -1,17 +1,33 @@
 {
-  "name": "Optinet — Sistema GPON CANTV",
-  "short_name": "Optinet",
-  "description": "Sistema Inteligente de Operaciones, Monitoreo y Mantenimiento de Redes Ópticas — CANTV ABA Ultra",
+  "name": "OPTINET — Sistema de Gestión GPON",
+  "short_name": "OPTINET",
+  "description": "Sistema de Operaciones, Monitoreo y Mantenimiento de Redes Ópticas GPON — CANTV ABA Ultra",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#001A4D",
-  "theme_color": "#003087",
+  "background_color": "#001E5C",
+  "theme_color": "#0033A0",
   "orientation": "portrait-primary",
-  "icons": [
-    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ],
-  "categories": ["utilities", "productivity"],
   "lang": "es",
-  "dir": "ltr"
+  "dir": "ltr",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "icon-72x72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any" },
+    { "src": "icon-96x96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+    { "src": "icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "OPTINET — Panel de Gestión"
+    }
+  ]
 }
