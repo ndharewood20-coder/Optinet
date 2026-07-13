@@ -18,7 +18,13 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+  // FCM se importa de forma dinámica para no bloquear si falla
+  let getToken = null, onMessage = null;
+  try {
+    const fcmMod = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js");
+    getToken = fcmMod.getToken;
+    onMessage = fcmMod.onMessage;
+  } catch(e) { console.warn('[FCM] Módulo no disponible:', e.message); }
 
   const firebaseConfig = {
     apiKey: "AIzaSyAJXumzB7iyw5BUStuRg3oBZUUvenmVLNg",
@@ -34,9 +40,14 @@
   const db = getFirestore(app);
   // Persistencia LOCAL: la sesión se mantiene aunque se cierre el navegador/app
   setPersistence(auth, browserLocalPersistence).catch(e => console.warn('Persistence error:', e));
-  // Firebase Cloud Messaging
+  // Firebase Cloud Messaging — solo si el módulo cargó correctamente
   let messaging = null;
-  try { messaging = getMessaging(app); } catch(e) { console.warn('FCM not available:', e.message); }
+  try {
+    if (getToken && onMessage) {
+      const { getMessaging } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js").catch(() => ({}));
+      if (getMessaging) messaging = getMessaging(app);
+    }
+  } catch(e) { console.warn('[FCM] getMessaging no disponible:', e.message); }
 
   // Exponer globalmente para uso desde scripts no-module
   window._FB = { auth, db, messaging, getToken, onMessage, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
@@ -1307,14 +1318,6 @@ function completarLogin(found) {
   };
   document.getElementById('header-role').textContent = roleLabels[found.role] || found.role;
   buildNav();
-  // Guardar sesión en caché local para inicio rápido
-  try {
-    localStorage.setItem('optinet_session_cache', JSON.stringify({
-      user: found.user, role: found.role, name: found.name,
-      zona: found.zona, cuadrilla: found.cuadrilla || '',
-      zonas_extra: found.zonas_extra || [], uid: found.uid || '', email: found.email || ''
-    }));
-  } catch(e) {}
   // Iniciar sincronización en tiempo real
   if (window._FB_READY && !_fbSyncEnabled) initFirebaseSync();
   // Mostrar indicador de sincronización
@@ -1336,7 +1339,6 @@ async function doLogout() {
     try { await window._FB.signOut(window._FB.auth); } catch(e) {}
   }
   SESSION = null;
-  localStorage.removeItem('optinet_session_cache');
   location.reload();
 }
 
@@ -5039,8 +5041,8 @@ async function iniciarNotificaciones() {
     console.warn('Este navegador no soporta notificaciones');
     return false;
   }
-  if (!window._FB?.messaging) {
-    console.warn('FCM no disponible');
+  if (!window._FB?.messaging || !window._FB?.getToken) {
+    console.warn('FCM no disponible en este navegador/dispositivo');
     return false;
   }
   try {
@@ -5208,79 +5210,42 @@ function getBorradoresCount() {
 }
 
 async function initApp() {
-  // Cargar datos locales de inmediato (no bloquea)
+  // Cargar datos locales inmediatamente
   loadDB();
 
-  // ── Paso 1: Sesión en caché → abrir la app al instante ──────────────────
-  const cachedSession = localStorage.getItem('optinet_session_cache');
-  if (cachedSession) {
-    try {
-      const cached = JSON.parse(cachedSession);
-      if (cached && cached.user && cached.role) {
-        const userProfile = DB.users.find(u => u.user === cached.user) || cached;
-        completarLogin(userProfile);
-        // Sincronizar en background sin bloquear la UI
-        setTimeout(() => {
-          if (window._FB_READY) {
-            pullFromFirestore()
-              .then(() => { if (SESSION && window._currentView) renderView(window._currentView); })
-              .catch(() => {});
-          }
-        }, 1500);
-        return; // App abierta — salir
-      }
-    } catch(e) { localStorage.removeItem('optinet_session_cache'); }
-  }
-
-  // ── Paso 2: Sin caché → esperar Firebase (máx. 5 seg) y verificar sesión ─
   const splashMsg = document.getElementById('splash-msg');
 
-  // Esperar a que Firebase esté listo (puede ya estarlo si el módulo cargó rápido)
-  await new Promise(resolve => {
-    if (window._FB_READY) { resolve(); return; }
-    // Escuchar el evento que dispara el módulo Firebase al terminar de cargar
-    document.addEventListener('firebase-ready', resolve, { once: true });
-    // Timeout de seguridad: si Firebase no carga en 5 seg, continuar igual
-    setTimeout(resolve, 5000);
-  });
-
-  if (!window._FB_READY) {
-    // Firebase no disponible — mostrar login con modo local
-    if (splashMsg) splashMsg.textContent = 'Modo local';
+  if (window._FB_READY) {
+    // Firebase ya cargó — sincronizar y mostrar login
+    if (splashMsg) splashMsg.textContent = 'Sincronizando datos...';
+    try {
+      await pullFromFirestore();
+      if (splashMsg) splashMsg.textContent = '¡Listo!';
+    } catch(e) {
+      console.warn('Error al sincronizar con Firestore:', e);
+      if (splashMsg) splashMsg.textContent = 'Modo local';
+    }
     showLoginScreen();
-    return;
-  }
-
-  // Firebase listo — verificar si hay sesión activa (persistencia local)
-  if (splashMsg) splashMsg.textContent = 'Verificando sesión...';
-  const { auth, onAuthStateChanged, db, doc, getDoc } = window._FB;
-
-  // onAuthStateChanged se llama UNA SOLA VEZ para verificar la sesión inicial
-  const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-    unsubAuth(); // Desuscribirse después del primer callback
-    if (firebaseUser) {
-      if (splashMsg) splashMsg.textContent = 'Cargando datos...';
-      // Sincronizar datos desde Firestore
-      try { await pullFromFirestore(); } catch(e) { console.warn('Sync error:', e); }
-      // Buscar perfil del usuario
-      let userProfile = DB.users.find(u => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
-      if (!userProfile) {
+  } else {
+    // Esperar a que Firebase esté listo (máximo 5 segundos)
+    let waited = 0;
+    const waitInterval = setInterval(async () => {
+      waited += 200;
+      if (window._FB_READY) {
+        clearInterval(waitInterval);
+        if (splashMsg) splashMsg.textContent = 'Sincronizando datos...';
         try {
-          const snap = await getDoc(doc(db, 'optinet_users', firebaseUser.uid));
-          if (snap.exists()) userProfile = snap.data();
-        } catch(e) {}
-      }
-      if (userProfile) {
-        completarLogin(userProfile);
-      } else {
-        // Sesión Firebase activa pero sin perfil en la plataforma → login manual
+          await pullFromFirestore();
+        } catch(e) { console.warn('Firestore sync error:', e); }
+        showLoginScreen();
+      } else if (waited >= 5000) {
+        clearInterval(waitInterval);
+        console.warn('Firebase no disponible, usando modo local');
+        if (splashMsg) splashMsg.textContent = 'Modo local';
         showLoginScreen();
       }
-    } else {
-      // No hay sesión activa → mostrar pantalla de login
-      showLoginScreen();
-    }
-  });
+    }, 200);
+  }
 }
 
 // Iniciar la app
