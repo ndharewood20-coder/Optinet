@@ -5208,72 +5208,79 @@ function getBorradoresCount() {
 }
 
 async function initApp() {
-  // ─── PASO 1: Cargar datos locales INMEDIATAMENTE (sin esperar Firebase) ───
+  // Cargar datos locales de inmediato (no bloquea)
   loadDB();
 
-  // ─── PASO 2: Intentar restaurar sesión desde localStorage ────────────────
-  // Si hay una sesión guardada localmente, mostrar la app de inmediato
+  // ── Paso 1: Sesión en caché → abrir la app al instante ──────────────────
   const cachedSession = localStorage.getItem('optinet_session_cache');
-  let sessionRestored = false;
   if (cachedSession) {
     try {
       const cached = JSON.parse(cachedSession);
       if (cached && cached.user && cached.role) {
-        // Restaurar sesión desde caché local — la app abre instantáneamente
         const userProfile = DB.users.find(u => u.user === cached.user) || cached;
         completarLogin(userProfile);
-        sessionRestored = true;
         // Sincronizar en background sin bloquear la UI
-        if (window._FB_READY) {
-          pullFromFirestore().then(() => {
-            // Actualizar datos en la vista actual sin recargar
-            if (SESSION && window._currentView) renderView(window._currentView);
-          }).catch(e => console.warn('Background sync error:', e));
-        }
+        setTimeout(() => {
+          if (window._FB_READY) {
+            pullFromFirestore()
+              .then(() => { if (SESSION && window._currentView) renderView(window._currentView); })
+              .catch(() => {});
+          }
+        }, 1500);
+        return; // App abierta — salir
       }
     } catch(e) { localStorage.removeItem('optinet_session_cache'); }
   }
 
-  if (sessionRestored) return; // Ya mostramos la app, salir
-
-  // ─── PASO 3: Sin sesión en caché — esperar Firebase Auth ─────────────────
+  // ── Paso 2: Sin caché → esperar Firebase (máx. 5 seg) y verificar sesión ─
   const splashMsg = document.getElementById('splash-msg');
 
-  const waitForFirebase = () => new Promise(resolve => {
+  // Esperar a que Firebase esté listo (puede ya estarlo si el módulo cargó rápido)
+  await new Promise(resolve => {
     if (window._FB_READY) { resolve(); return; }
-    const h = document.addEventListener('firebase-ready', () => resolve(), { once: true });
-    setTimeout(resolve, 4000); // timeout de 4 segundos
+    // Escuchar el evento que dispara el módulo Firebase al terminar de cargar
+    document.addEventListener('firebase-ready', resolve, { once: true });
+    // Timeout de seguridad: si Firebase no carga en 5 seg, continuar igual
+    setTimeout(resolve, 5000);
   });
 
-  await waitForFirebase();
+  if (!window._FB_READY) {
+    // Firebase no disponible — mostrar login con modo local
+    if (splashMsg) splashMsg.textContent = 'Modo local';
+    showLoginScreen();
+    return;
+  }
 
-  if (window._FB_READY) {
-    if (splashMsg) splashMsg.textContent = 'Verificando sesión...';
-    const { auth, onAuthStateChanged, db, doc, getDoc } = window._FB;
-    onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        if (splashMsg) splashMsg.textContent = 'Cargando datos...';
-        try { await pullFromFirestore(); } catch(e) { console.warn('Firestore sync error:', e); }
-        let userProfile = DB.users.find(u => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
-        if (!userProfile) {
-          try {
-            const snap = await getDoc(doc(db, 'optinet_users', firebaseUser.uid));
-            if (snap.exists()) userProfile = snap.data();
-          } catch(e) {}
-        }
-        if (userProfile) {
-          completarLogin(userProfile);
-        } else {
-          showLoginScreen();
-        }
+  // Firebase listo — verificar si hay sesión activa (persistencia local)
+  if (splashMsg) splashMsg.textContent = 'Verificando sesión...';
+  const { auth, onAuthStateChanged, db, doc, getDoc } = window._FB;
+
+  // onAuthStateChanged se llama UNA SOLA VEZ para verificar la sesión inicial
+  const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    unsubAuth(); // Desuscribirse después del primer callback
+    if (firebaseUser) {
+      if (splashMsg) splashMsg.textContent = 'Cargando datos...';
+      // Sincronizar datos desde Firestore
+      try { await pullFromFirestore(); } catch(e) { console.warn('Sync error:', e); }
+      // Buscar perfil del usuario
+      let userProfile = DB.users.find(u => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
+      if (!userProfile) {
+        try {
+          const snap = await getDoc(doc(db, 'optinet_users', firebaseUser.uid));
+          if (snap.exists()) userProfile = snap.data();
+        } catch(e) {}
+      }
+      if (userProfile) {
+        completarLogin(userProfile);
       } else {
-        try { await pullFromFirestore(); } catch(e) {}
+        // Sesión Firebase activa pero sin perfil en la plataforma → login manual
         showLoginScreen();
       }
-    });
-  } else {
-    showLoginScreen();
-  }
+    } else {
+      // No hay sesión activa → mostrar pantalla de login
+      showLoginScreen();
+    }
+  });
 }
 
 // Iniciar la app
@@ -5283,61 +5290,25 @@ initApp();
 </script>
 
 <script>
-// PWA Service Worker registration con detección automática de actualizaciones
+// Stub para compatibilidad con SW antiguo
+function mostrarNotificacionActualizacion() { /* eliminado — sin banners de actualización */ }
+
+// PWA Service Worker — registro simple sin banners de actualización
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Registrar también el SW de Firebase Messaging para notificaciones push en background
+    // SW de Firebase Messaging para notificaciones push en background
     navigator.serviceWorker.register('./firebase-messaging-sw.js').catch(() => {});
+    // SW principal de la PWA
     navigator.serviceWorker.register('./service-worker.js')
       .then(reg => {
-        console.log('[App] SW registrado, versión activa.');
-
-        // Detectar cuando hay una nueva versión esperando activarse
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Hay una nueva versión lista — mostrar notificación al usuario
-              mostrarNotificacionActualizacion();
-            }
-          });
-        });
-
-        // Verificar actualizaciones cada vez que el usuario vuelve a la app
+        console.log('[App] SW registrado correctamente.');
+        // Verificar actualizaciones silenciosamente al volver a la app
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            reg.update().catch(() => {});
-          }
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
         });
       })
       .catch(err => console.log('[App] SW no disponible:', err));
-
-    // Escuchar mensajes del SW (nueva versión activada)
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'SW_UPDATED') {
-        console.log('[App] Nueva versión activa:', event.data.version);
-        // Recargar silenciosamente para aplicar la nueva versión
-        window.location.reload();
-      }
-    });
   });
-}
-
-// Mostrar banner de actualización disponible
-function mostrarNotificacionActualizacion() {
-  // Evitar mostrar múltiples banners
-  if (document.getElementById('update-banner')) return;
-  const banner = document.createElement('div');
-  banner.id = 'update-banner';
-  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#0033A0;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:99999;font-size:14px;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
-  banner.innerHTML = `
-    <span>🔄 Nueva versión de Optinet disponible</span>
-    <div style="display:flex;gap:10px">
-      <button onclick="this.closest('#update-banner').remove()" style="background:transparent;color:#aac;border:1px solid #aac;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Después</button>
-      <button onclick="window.location.reload()" style="background:#00A9E0;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Actualizar ahora</button>
-    </div>`;
-  document.body.appendChild(banner);
 }
 
 // PWA install prompt
