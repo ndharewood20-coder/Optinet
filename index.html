@@ -18,13 +18,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  // FCM se importa de forma dinámica para no bloquear si falla
-  let getToken = null, onMessage = null;
-  try {
-    const fcmMod = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js");
-    getToken = fcmMod.getToken;
-    onMessage = fcmMod.onMessage;
-  } catch(e) { console.warn('[FCM] Módulo no disponible:', e.message); }
 
   const firebaseConfig = {
     apiKey: "AIzaSyAJXumzB7iyw5BUStuRg3oBZUUvenmVLNg",
@@ -40,17 +33,9 @@
   const db = getFirestore(app);
   // Persistencia LOCAL: la sesión se mantiene aunque se cierre el navegador/app
   setPersistence(auth, browserLocalPersistence).catch(e => console.warn('Persistence error:', e));
-  // Firebase Cloud Messaging — solo si el módulo cargó correctamente
-  let messaging = null;
-  try {
-    if (getToken && onMessage) {
-      const { getMessaging } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js").catch(() => ({}));
-      if (getMessaging) messaging = getMessaging(app);
-    }
-  } catch(e) { console.warn('[FCM] getMessaging no disponible:', e.message); }
 
   // Exponer globalmente para uso desde scripts no-module
-  window._FB = { auth, db, messaging, getToken, onMessage, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
+  window._FB = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
   window._FB_READY = true;
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -961,28 +946,6 @@ function getDefaultUserZone() {
   return ZONES[0];
 }
 
-// ─── MULTI-ZONA: obtiene todas las zonas activas del usuario actual ───────────
-function getZonasActivas() {
-  if (!SESSION) return [];
-  const zonaPrincipal = SESSION.zona ? [SESSION.zona] : [];
-  const extras = (SESSION.zonas_extra || []).filter(z => z && z.trim());
-  return [...new Set([...zonaPrincipal, ...extras])];
-}
-
-async function guardarZonasExtra(zonasExtra) {
-  const user = DB.users.find(u => u.user === SESSION.user);
-  if (user) user.zonas_extra = zonasExtra;
-  SESSION.zonas_extra = zonasExtra;
-  saveDB();
-  if (window._FB_READY && SESSION.uid) {
-    try {
-      const { db, doc, updateDoc } = window._FB;
-      await updateDoc(doc(db, 'optinet_users', SESSION.uid), { zonas_extra: zonasExtra });
-    } catch(e) { console.warn('Error guardando zonas_extra:', e); }
-  }
-}
-
-
 
 const FAULT_CATEGORIES = {
   'NNV':  { label: 'No Navega (NNV)', sev: 2, proc: 'MC-04', color: '#C62828' },
@@ -1306,10 +1269,6 @@ function completarLogin(found) {
   SESSION = found;
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
-  // Iniciar detección de modo offline
-  initOfflineDetection();
-  // Solicitar permiso de notificaciones push
-  pedirPermisoNotificaciones();
   document.getElementById('header-name').textContent = found.name;
   const roleLabels = {
     'gerente_general': 'Gerente General',
@@ -1359,7 +1318,7 @@ const NAV_ADMIN = [
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
 ];
 const NAV_TECNICO = [
-  { id: 'averias-tec', label: 'Mis Averías', icon: iconAlert(), section: 'Trabajo', badge: () => DB.averias.filter(a=>a.asignado_a===SESSION.user && a.estado_gestion==='Abierta').length + getBorradoresCount() },
+  { id: 'averias-tec', label: 'Mis Averías', icon: iconAlert(), section: 'Trabajo', badge: () => DB.averias.filter(a=>a.asignado_a===SESSION.user && a.estado_gestion==='Abierta').length },
   { id: 'mis-ordenes', label: 'Mis Órdenes', icon: iconClipboard(), section: 'Trabajo', badge: () => DB.ordenes.filter(o=>o.tecnico===SESSION.user && o.estado!=='Completada').length },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' }
 ];
@@ -1727,13 +1686,12 @@ Completadas: ${k.byStatus['Completada']||0}
    ============================================================ */
 function renderOrdenesAdmin(c) {
   // For gerente_zona, only show their zone's techs; for admin show all
-  const zonasOT = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
-  const zonaFiltroOT = zonasOT && zonasOT.length === 1 ? zonasOT[0] : null;
-  const tecs = zonasOT
-    ? DB.users.filter(u => u.role === 'tecnico' && zonasOT.includes(u.zona))
+  const zonaFiltroOT = SESSION.role === 'gerente_zona' ? SESSION.zona : null;
+  const tecs = zonaFiltroOT
+    ? DB.users.filter(u => u.role === 'tecnico' && u.zona === zonaFiltroOT)
     : DB.users.filter(u => u.role === 'tecnico');
-  const averiasAbiertas = zonasOT ?
-    DB.averias.filter(a => a.estado_gestion === 'Abierta' && zonasOT.includes(a.zona)) :
+  const averiasAbiertas = zonaFiltroOT ?
+    DB.averias.filter(a => a.estado_gestion === 'Abierta' && a.zona === zonaFiltroOT) :
     DB.averias.filter(a => a.estado_gestion === 'Abierta');
   c.innerHTML = `
   <div class="page-header">
@@ -2218,7 +2176,7 @@ function renderUsuarios(c) {
       <div class="card-header"><div class="card-title">Crear Nueva Cuadrilla</div></div>
       <div class="form-row">
         <div class="form-col"><label>Nombre de la Cuadrilla</label><input id="cq-nombre" placeholder="Ej: Cuadrilla Norte"></div>
-        <div class="form-col"><label>Zona Principal</label>
+        <div class="form-col"><label>Zona</label>
           <div style="position:relative;display:inline-block;width:100%">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" id="cq-zona-search" placeholder="Buscar zona..."
@@ -2230,19 +2188,6 @@ function renderUsuarios(c) {
             <div id="cq-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
               ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaField('cq-zona','${z}','filtrarTecsPorZonaCQ')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-col" style="flex:2">
-          <label>Zonas Adicionales <span style="font-size:11px;color:var(--muted)">(opcional — para cuadrillas que cubren varias zonas)</span></label>
-          <div id="cq-zonas-extra-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:6px"></div>
-          <div style="display:flex;gap:8px">
-            <select id="cq-zona-extra-sel" style="flex:1;padding:7px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px">
-              <option value="">— Agregar zona adicional —</option>
-              ${ZONES.map(z=>`<option value="${z}">${z}</option>`).join('')}
-            </select>
-            <button type="button" class="btn btn-outline btn-sm" onclick="agregarZonaCQ()">+ Agregar</button>
           </div>
         </div>
       </div>
@@ -2274,7 +2219,7 @@ function renderUsuarios(c) {
           return `<div class="card" style="margin-bottom:10px;border-left:3px solid var(--cyan)">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
               <div>
-                <div style="font-weight:700;font-size:14px">${cq.nombre} ${(cq.zonas||[cq.zona]).map(z=>`<span class="pill pill-prev">${z}</span>`).join(' ')}</div>
+                <div style="font-weight:700;font-size:14px">${cq.nombre} <span class="pill pill-prev">${cq.zona}</span></div>
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">
                   <strong>Líder:</strong> ${lider?.name||cq.lider} &nbsp;·&nbsp;
                   <strong>Integrantes:</strong> ${miembros.join(', ')||'—'}
@@ -2433,63 +2378,9 @@ function guardarEdicionCuadrilla(id) {
   alert(`Cuadrilla "${nuevoNombre}" actualizada exitosamente.`);
 }
 
-// Zonas extra temporales para el formulario de nueva cuadrilla
-let _cqZonasExtra = [];
-
-function agregarZonaCQ() {
-  const sel = document.getElementById('cq-zona-extra-sel');
-  const zona = sel?.value;
-  if (!zona) return;
-  if (!_cqZonasExtra.includes(zona)) _cqZonasExtra.push(zona);
-  sel.value = '';
-  renderChipsCQ();
-}
-
-function quitarZonaCQ(zona) {
-  _cqZonasExtra = _cqZonasExtra.filter(z => z !== zona);
-  renderChipsCQ();
-}
-
-function renderChipsCQ() {
-  const container = document.getElementById('cq-zonas-extra-chips');
-  if (!container) return;
-  container.innerHTML = _cqZonasExtra.map(z =>
-    `<span style="background:#E3F2FD;color:#0277BD;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
-      ${z} <button onclick="quitarZonaCQ('${z}')" style="background:none;border:none;cursor:pointer;color:#0277BD;font-size:14px;line-height:1;padding:0">×</button>
-    </span>`
-  ).join('');
-}
-
-// Zonas extra temporales para el formulario de nueva cuadrilla
-let _cqZonasExtra = [];
-
-function agregarZonaCQ() {
-  const sel = document.getElementById('cq-zona-extra-sel');
-  const zona = sel?.value;
-  if (!zona) return;
-  if (!_cqZonasExtra.includes(zona)) _cqZonasExtra.push(zona);
-  sel.value = '';
-  renderChipsCQ();
-}
-
-function quitarZonaCQ(zona) {
-  _cqZonasExtra = _cqZonasExtra.filter(z => z !== zona);
-  renderChipsCQ();
-}
-
-function renderChipsCQ() {
-  const container = document.getElementById('cq-zonas-extra-chips');
-  if (!container) return;
-  container.innerHTML = _cqZonasExtra.map(z =>
-    `<span style="background:#E3F2FD;color:#0277BD;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
-      ${z} <button onclick="quitarZonaCQ('${z}')" style="background:none;border:none;cursor:pointer;color:#0277BD;font-size:14px;line-height:1;padding:0">×</button>
-    </span>`
-  ).join('');
-}
-
 function crearCuadrilla() {
   const nombre = document.getElementById('cq-nombre')?.value?.trim();
-  const zonaPrincipal = document.getElementById('cq-zona-search')?.value || document.getElementById('cq-zona')?.value || '';
+  const zona = document.getElementById('cq-zona-search')?.value || document.getElementById('cq-zona')?.value || '';
   const lider = document.getElementById('cq-lider')?.value;
   if (!nombre) { alert('El nombre de la cuadrilla es requerido'); return; }
   if (!lider) { alert('Debe seleccionar un líder'); return; }
@@ -2497,17 +2388,13 @@ function crearCuadrilla() {
   const miembros = miembrosEl ? [...miembrosEl.selectedOptions].map(o=>o.value) : [];
   if (!DB.cuadrillas) DB.cuadrillas = [];
   const id = 'CQ-' + Date.now();
-  // Construir array de zonas (principal + extras, sin duplicados)
-  const zonas = [...new Set([zonaPrincipal, ..._cqZonasExtra].filter(z => z))];
-  DB.cuadrillas.push({ id, nombre, zona: zonaPrincipal, zonas, lider, miembros });
+  DB.cuadrillas.push({ id, nombre, zona, lider, miembros });
   // Update the cuadrilla field for all members
   DB.users.forEach(u => {
     if (u.user === lider || miembros.includes(u.user)) {
       u.cuadrilla = nombre;
     }
   });
-  _cqZonasExtra = []; // reset
-  _cqZonasExtra = []; // reset zonas extra
   saveDB();
   alert(`Cuadrilla "${nombre}" creada. Líder: ${DB.users.find(u=>u.user===lider)?.name}`);
   renderView('usuarios');
@@ -2643,8 +2530,6 @@ function cargarAverias(input) {
       const wb = XLSX.read(e.target.result, {type:'binary'});
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
       let added = 0;
-      const loteTimestamp = new Date().toISOString();
-      const loteId = 'lote_' + Date.now();
       rows.forEach(row => {
         const id = String(row.id_averia || row['id_averia'] || '').trim();
         if (!id || DB.averias.find(a => a.id_averia === id)) return;
@@ -2669,17 +2554,12 @@ function cargarAverias(input) {
           cvlan: String(row.cvlan||''), ultimo_comentario: row.ultimo_comentario||'',
           problema_reporte: row.problema_reporte||'', dias_transcurridos: String(row['dias transcurrido desde la apertura']||''),
           area_resolutoria: row.area_resolutoria||'', severidad: cat.sev,
-          estado_gestion: 'Abierta', asignado_a: '', ot_asignada: '',
-          fecha_carga: loteTimestamp, lote_id: loteId
+          estado_gestion: 'Abierta', asignado_a: '', ot_asignada: ''
         });
         added++;
       });
-      addHistorial('carga_datos', {tipo:'averias', count: added, lote_id: loteId, fecha_carga: loteTimestamp, cargado_por: SESSION?.user || 'sistema'});
+      addHistorial('carga_datos', {tipo:'averias', count: added});
       saveDB();
-      // Notificar a todos los gerentes sobre la nueva carga
-      DB.users.filter(u => (u.role === 'gerente_general' || u.role === 'gerente_zona') && u.user !== SESSION?.user).forEach(g => {
-        enviarNotificacionPush(g.user, '📥 Nuevas averías cargadas', `${SESSION?.name || 'Un gerente'} cargó ${added} averías nuevas`, { tipo: 'nueva_carga', count: added });
-      });
       document.getElementById('msg-av').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} averías cargadas exitosamente. Los KPIs se actualizaron.</div>`;
     } catch(err) {
       document.getElementById('msg-av').innerHTML = `<div class="alert alert-err">Error al leer el archivo: ${err.message}</div>`;
@@ -3870,112 +3750,16 @@ function exportODN() {
 /* ============================================================
    AVERÍAS — ADMINISTRADOR
    ============================================================ */
-
-/* ============================================================
-   MIS ZONAS — Gestión de zonas adicionales del gerente
-   ============================================================ */
-
-/* ============================================================
-   AUTO-ASIGNACIÓN DE AVERÍAS A CUADRILLAS
-   ============================================================ */
-function autoAsignarAverias() {
-  const zonasActivas = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
-  const averiasDisp = DB.averias.filter(a =>
-    a.estado_gestion === 'Abierta' && !a.asignado_a &&
-    (!zonasActivas || zonasActivas.includes(a.zona))
-  );
-  if (!averiasDisp.length) { alert('No hay averías abiertas sin asignar en tus zonas.'); return; }
-  const cuadrillasDisp = (DB.cuadrillas || []).filter(cq =>
-    !zonasActivas || (cq.zonas || [cq.zona]).some(z => zonasActivas.includes(z))
-  );
-  if (!cuadrillasDisp.length) { alert('No hay cuadrillas activas en tus zonas. Crea cuadrillas primero.'); return; }
-  const mapZonaCQ = {};
-  cuadrillasDisp.forEach(cq => {
-    (cq.zonas || [cq.zona]).forEach(z => {
-      if (!mapZonaCQ[z]) mapZonaCQ[z] = [];
-      mapZonaCQ[z].push(cq);
-    });
-  });
-  const cargaCQ = {};
-  cuadrillasDisp.forEach(cq => { cargaCQ[cq.id] = 0; });
-  DB.averias.filter(a => a.estado_gestion === 'Abierta' && a.asignado_a).forEach(a => {
-    const cq = cuadrillasDisp.find(c => c.lider === a.asignado_a || (c.miembros||[]).includes(a.asignado_a));
-    if (cq) cargaCQ[cq.id] = (cargaCQ[cq.id] || 0) + 1;
-  });
-  let asignadas = 0;
-  const detalles = [];
-  averiasDisp.forEach(av => {
-    const cqsZona = mapZonaCQ[av.zona] || [];
-    if (!cqsZona.length) return;
-    const cqElegida = cqsZona.reduce((min, cq) => (cargaCQ[cq.id]||0) < (cargaCQ[min.id]||0) ? cq : min);
-    av.asignado_a = cqElegida.lider;
-    cargaCQ[cqElegida.id] = (cargaCQ[cqElegida.id] || 0) + 1;
-    asignadas++;
-    detalles.push({ averia: av.id_averia, zona: av.zona, cuadrilla: cqElegida.nombre });
-  });
-  if (!asignadas) { alert('No se pudo asignar ninguna avería. Verifica que las cuadrillas tienen zonas configuradas que coincidan con las averías.'); return; }
-  addHistorial('auto_asignacion', { count: asignadas, por: SESSION.user });
-  saveDB();
-  const sinCQ = averiasDisp.length - asignadas;
-  const resumen = detalles.slice(0, 5).map(d => `• ${d.averia} (${d.zona}) → ${d.cuadrilla}`).join('\n');
-  const extra = detalles.length > 5 ? `\n... y ${detalles.length - 5} más` : '';
-  alert(`✅ Auto-asignación completada:\n${asignadas} averías asignadas${sinCQ > 0 ? '\n⚠️ ' + sinCQ + ' sin cuadrilla para su zona' : ''}\n\nDetalle (primeras 5):\n${resumen}${extra}`);
-  renderView('averias-admin');
-}
-
-function abrirGestorZonas() {
-  const zonaPrincipal = SESSION.zona;
-  const extrasActuales = SESSION.zonas_extra || [];
-  showModal('Gestionar Mis Zonas', `
-    <div style="margin-bottom:14px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px">
-        Tu zona principal es <strong>${zonaPrincipal}</strong>. Agrega zonas adicionales para ver sus averías.
-      </div>
-      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Zonas adicionales activas:</div>
-      <div id="zonas-extra-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:12px">
-        ${extrasActuales.length === 0 ? '<span style="color:var(--muted);font-size:12px">Ninguna zona adicional</span>' :
-          extrasActuales.map(z => `
-            <span style="background:#E3F2FD;color:#0277BD;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
-              ${z}
-              <button onclick="quitarZonaExtra('${z}')" style="background:none;border:none;cursor:pointer;color:#0277BD;font-size:14px;line-height:1;padding:0">×</button>
-            </span>`).join('')}
-      </div>
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px">Agregar zona:</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select id="nueva-zona-extra" style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px">
-          <option value="">— Seleccionar zona —</option>
-          ${ZONES.filter(z => z !== zonaPrincipal && !extrasActuales.includes(z)).map(z => `<option value="${z}">${z}</option>`).join('')}
-        </select>
-        <button class="btn btn-blue btn-sm" onclick="agregarZonaExtra()">Agregar</button>
-      </div>
-    </div>
-  `, `<button class="btn btn-outline" onclick="closeModal()">Cerrar</button>`);
-}
-
-function agregarZonaExtra() {
-  const sel = document.getElementById('nueva-zona-extra');
-  const zona = sel?.value;
-  if (!zona) return;
-  const extras = [...(SESSION.zonas_extra || [])];
-  if (!extras.includes(zona)) extras.push(zona);
-  guardarZonasExtra(extras).then(() => { closeModal(); renderView('averias-admin'); });
-}
-
-function quitarZonaExtra(zona) {
-  const extras = (SESSION.zonas_extra || []).filter(z => z !== zona);
-  guardarZonasExtra(extras).then(() => { closeModal(); renderView('averias-admin'); });
-}
-
 function renderAveriasAdmin(c) {
-  const zonasActivas = (SESSION.role === 'gerente_zona') ? getZonasActivas() : null;
-  const zonaFiltro = zonasActivas && zonasActivas.length === 1 ? zonasActivas[0] : null;
-  const averiasVista = zonasActivas ? DB.averias.filter(a => zonasActivas.includes(a.zona)) : DB.averias;
+  // Filter by zone for gerente_zona
+  const zonaFiltro = SESSION.role === 'gerente_zona' ? SESSION.zona : null;
+  const averiasVista = zonaFiltro ? DB.averias.filter(a => a.zona === zonaFiltro) : DB.averias;
   const abiertas = averiasVista.filter(a => a.estado_gestion === 'Abierta' && !a.asignado_a);
   const asignadas = averiasVista.filter(a => a.estado_gestion === 'Abierta' && a.asignado_a);
   const cerradas = averiasVista.filter(a => a.estado_gestion === 'Cerrada');
   // Build technician options for bulk assign (filtered by zone for gerente_zona)
-  const tecsDisp = zonasActivas
-    ? DB.users.filter(u => u.role === 'tecnico' && zonasActivas.includes(u.zona))
+  const tecsDisp = zonaFiltro
+    ? DB.users.filter(u => u.role === 'tecnico' && u.zona === zonaFiltro)
     : DB.users.filter(u => u.role === 'tecnico');
   const tecOptions = tecsDisp.map(t => `<option value="${t.user}">${t.name} (${t.zona})</option>`).join('');
 
@@ -3985,29 +3769,10 @@ function renderAveriasAdmin(c) {
       <div class="page-title">Gestión de Averías</div>
       <div class="page-sub">${abiertas.length} abiertas · ${cerradas.length} cerradas · Total: ${averiasVista.length}</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-blue btn-sm" onclick="autoAsignarAverias()" title="Asigna automáticamente las averías abiertas a las cuadrillas según su zona">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-        Auto-Asignar
-      </button>
-      <button class="btn btn-orange btn-sm" onclick="nuevaAveria()">
-        ${iconPlus()} Nueva Avería
-      </button>
-    </div>
+    <button class="btn btn-orange btn-sm" onclick="nuevaAveria()">
+      ${iconPlus()} Nueva Avería
+    </button>
   </div>
-  ${SESSION.role === 'gerente_zona' ? `
-  <div id="mis-zonas-panel" style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-weight:700;font-size:13px;color:var(--blue)">Mis Zonas:</span>
-        ${getZonasActivas().map(z => `<span style="background:var(--blue);color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">${z}</span>`).join('')}
-      </div>
-      <button class="btn btn-outline btn-sm" onclick="abrirGestorZonas()" style="font-size:12px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Gestionar Mis Zonas
-      </button>
-    </div>
-  </div>` : ''}
   <div class="stats-row">
     ${[1,2,3,4,5].map(n => {
       const cnt = averiasVista.filter(a => a.severidad === n && a.estado_gestion === 'Abierta').length;
@@ -4024,7 +3789,7 @@ function renderAveriasAdmin(c) {
     <select id="bulk-tec-select" style="border-radius:6px;padding:6px 10px;font-size:13px;border:none;min-width:200px">
       <option value="">— Seleccionar técnico o cuadrilla —</option>
       ${tecOptions.length ? '<optgroup label="Técnicos">' + tecOptions + '</optgroup>' : tecOptions}
-      ${(DB.cuadrillas||[]).filter(cq=>!zonasActivas||(cq.zonas||[cq.zona]).some(z=>zonasActivas.includes(z))).length > 0 ? '<optgroup label="Cuadrillas">' + (DB.cuadrillas||[]).filter(cq=>!zonasActivas||(cq.zonas||[cq.zona]).some(z=>zonasActivas.includes(z))).map(cq=>`<option value="cq:${cq.id}">${cq.nombre} (${(cq.zonas||[cq.zona]).join(', ')}) — Líder: ${DB.users.find(u=>u.user===cq.lider)?.name||cq.lider}</option>`).join('') + '</optgroup>' : ''}
+      ${(DB.cuadrillas||[]).filter(cq=>!zonaFiltro||cq.zona===zonaFiltro).length > 0 ? '<optgroup label="Cuadrillas">' + (DB.cuadrillas||[]).filter(cq=>!zonaFiltro||cq.zona===zonaFiltro).map(cq=>`<option value="cq:${cq.id}">${cq.nombre} (${cq.zona}) — Líder: ${DB.users.find(u=>u.user===cq.lider)?.name||cq.lider}</option>`).join('') + '</optgroup>' : ''}
     </select>
     <button class="btn btn-sm" style="background:var(--orange);color:#fff" onclick="asignarMasivo()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -4189,9 +3954,8 @@ function renderAveriasContent() {
   ['abiertas','asignadas','cerradas'].forEach(estado => {
     const isAbierta = estado === 'abiertas';
     const isAsignada = estado === 'asignadas';
-    const zonasRend = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
-    const zonaFiltroRend = zonasRend && zonasRend.length === 1 ? zonasRend[0] : null;
-    const avBase = zonasRend ? DB.averias.filter(a => zonasRend.includes(a.zona)) : DB.averias;
+    const zonaFiltroRend = SESSION.role === 'gerente_zona' ? SESSION.zona : null;
+    const avBase = zonaFiltroRend ? DB.averias.filter(a => a.zona === zonaFiltroRend) : DB.averias;
     let items;
     if (isAbierta) items = avBase.filter(a => a.estado_gestion === 'Abierta' && !a.asignado_a);
     else if (isAsignada) items = avBase.filter(a => a.estado_gestion === 'Abierta' && a.asignado_a);
@@ -4205,34 +3969,7 @@ function renderAveriasContent() {
     const el = document.getElementById(`av-content-${estado}`);
     if (!el) return;
     if (!items.length) { el.innerHTML = '<div class="card"><p style="color:var(--muted)">No hay averías en esta categoría con los filtros aplicados.</p></div>'; return; }
-    // Agrupar por lote para separación visual
-    const lotes = {};
-    items.forEach(a => {
-      const k = a.lote_id || 'sin_lote';
-      if (!lotes[k]) lotes[k] = { fecha: a.fecha_carga || null, items: [] };
-      lotes[k].items.push(a);
-    });
-    const loteKeys = Object.keys(lotes);
-    let html = '';
-    if (loteKeys.length > 1) {
-      loteKeys.sort((a, b) => (lotes[b].fecha||'0').localeCompare(lotes[a].fecha||'0'));
-      loteKeys.forEach((key, idx) => {
-        const lote = lotes[key];
-        const fechaStr = lote.fecha ? new Date(lote.fecha).toLocaleString('es-VE', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Carga anterior';
-        const esNuevo = idx === 0;
-        html += `<div style="margin:${idx===0?'0':'16px'} 0 8px 0;display:flex;align-items:center;gap:10px">
-          <div style="flex:1;height:2px;background:${esNuevo?'var(--blue)':'var(--border)'}"></div>
-          <span style="font-size:11px;font-weight:700;color:${esNuevo?'var(--blue)':'var(--muted)'};white-space:nowrap;padding:3px 10px;border-radius:20px;background:${esNuevo?'#E8F0FE':'var(--bg)'}">
-            ${esNuevo ? '🆕 ' : ''}Carga: ${fechaStr} · ${lote.items.length} averías
-          </span>
-          <div style="flex:1;height:2px;background:${esNuevo?'var(--blue)':'var(--border)'}"></div>
-        </div>`;
-        html += lote.items.map(a => renderAveriaCard(a, SESSION.role !== 'tecnico')).join('');
-      });
-    } else {
-      html = items.map(a => renderAveriaCard(a, SESSION.role !== 'tecnico')).join('');
-    }
-    el.innerHTML = html;
+    el.innerHTML = items.map(a => renderAveriaCard(a, SESSION.role !== 'tecnico')).join('');
   });
 }
 
@@ -4424,12 +4161,8 @@ function asignarMasivo() {
     }
   });
   saveDB();
-  // Notificar al técnico/líder asignado
-  if (asignadas > 0) {
-    enviarNotificacionPush(tecUser, '📋 Averías asignadas', `Se te asignaron ${asignadas} avería(s) — ${assignLabel}`, { tipo: 'asignacion_masiva', count: asignadas });
-  }
   deseleccionarTodas();
-  alert(`${asignadas} avería(s) asignadas a ${assignLabel} exitosamente.`);
+  alert(`${asignadas} avería(s) asignadas a ${tec.name} exitosamente.`);
   renderView('averias-admin');
 }
 
@@ -4498,132 +4231,14 @@ function crearOTDesdeAveria(avId) {
 }
 
 function cerrarAveriaDirecta(avId) {
-  // Gerentes usan el mismo formulario completo que los técnicos
-  abrirPlanillaCierreGerente(avId);
-}
-
-function abrirPlanillaCierreGerente(avId) {
-  const a = DB.averias.find(x => x.id_averia === avId);
-  if (!a) return;
-  const sev = SEV_LABELS[a.severidad] || SEV_LABELS[5];
-  showModal(`Planilla de Cierre — Avería ${avId}`, `
-    <div style="background:#FFF3E0;border-radius:8px;padding:10px 14px;margin-bottom:14px;border-left:3px solid var(--orange)">
-      <div style="font-weight:700;font-size:13px">${a.nombre}</div>
-      <div style="font-size:12px;color:var(--muted)">${a.direccion} · Tel: ${a.telefono||'—'} ${a.contacto?'· Contacto: '+a.contacto:''}</div>
-      <div style="margin-top:4px"><span class="pill ${sev.pill}">${sev.label}</span> · Zona: ${a.zona}</div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Causa Raíz Identificada</label>
-        <select id="ger-causa">
-          <option value="">— Seleccionar —</option>
-          <option>Conector sucio / contaminado</option>
-          <option>Cable drop dañado</option>
-          <option>ONT defectuosa (requiere reemplazo)</option>
-          <option>Corte de cable de fibra</option>
-          <option>Splitter degradado</option>
-          <option>Macrocurvatura en cable</option>
-          <option>Empalme deteriorado</option>
-          <option>Falla de alimentación eléctrica</option>
-          <option>CTO/FAT dañada (vandalismo/humedad)</option>
-          <option>Configuración incorrecta en OLT</option>
-          <option>Problema de routing/VLAN</option>
-          <option>Otro (especificar en observaciones)</option>
-        </select>
-      </div>
-      <div class="form-col">
-        <label>Medida Tomada</label>
-        <select id="ger-accion">
-          <option value="">— Seleccionar —</option>
-          <option>Limpieza de conector (Insp → Limpiar → Re-insp)</option>
-          <option>Reemplazo de ONT</option>
-          <option>Reemplazo de cable drop</option>
-          <option>Empalme por fusión de emergencia</option>
-          <option>Reemplazo de splitter</option>
-          <option>Corrección de macrocurvatura</option>
-          <option>Reemplazo de CTO/FAT</option>
-          <option>Bypass de emergencia (MC-06)</option>
-          <option>Reinicio / reconfiguración OLT</option>
-          <option>Otra (especificar en observaciones)</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Atenuación Antes (dB)</label>
-        <input type="number" id="ger-att-antes" placeholder="Ej: 0.45" step="0.01">
-      </div>
-      <div class="form-col">
-        <label>Atenuación Después (dB)</label>
-        <input type="number" id="ger-att-despues" placeholder="Ej: 0.04" step="0.01">
-      </div>
-      <div class="form-col">
-        <label>Tiempo de Resolución (min)</label>
-        <input type="number" id="ger-tiempo" placeholder="Ej: 90" min="1">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>¿Se restableció el servicio?</label>
-        <select id="ger-restablecido">
-          <option value="Si">Sí — Servicio restablecido al 100%</option>
-          <option value="Parcial">Parcial — Servicio degradado</option>
-          <option value="No">No — Requiere continuación</option>
-        </select>
-      </div>
-      <div class="form-col">
-        <label>Técnico que resolvió (opcional)</label>
-        <select id="ger-tecnico">
-          <option value="">— Sin asignar —</option>
-          ${DB.users.filter(u=>u.role==='tecnico').map(t=>`<option value="${t.user}">${t.name} (${t.zona})</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-col">
-        <label>Observaciones</label>
-        <textarea id="ger-obs" rows="2" placeholder="Hallazgos adicionales..."></textarea>
-      </div>
-    </div>
-  `, `
-    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-green" onclick="cerrarAveriaGerente('${avId}')">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-      Cerrar Avería
-    </button>
-  `);
-}
-
-function cerrarAveriaGerente(avId) {
-  const causa = document.getElementById('ger-causa')?.value;
-  const accion = document.getElementById('ger-accion')?.value;
-  if (!causa || !accion) { alert('Complete la causa raíz y la medida tomada.'); return; }
-  const a = DB.averias.find(x => x.id_averia === avId);
-  if (!a) return;
-  a.estado_gestion = 'Cerrada';
-  a.causa_raiz = causa;
-  a.accion_correctiva = accion;
-  a.att_antes = document.getElementById('ger-att-antes')?.value || '';
-  a.att_despues = document.getElementById('ger-att-despues')?.value || '';
-  a.tiempo_resolucion = document.getElementById('ger-tiempo')?.value || '';
-  a.servicio_restablecido = document.getElementById('ger-restablecido')?.value || 'Si';
-  a.obs_tecnico = document.getElementById('ger-obs')?.value || '';
-  a.fecha_cierre = new Date().toISOString().slice(0,16).replace('T',' ');
-  a.cerrado_por = SESSION.user;
-  const tecAsignado = document.getElementById('ger-tecnico')?.value;
-  if (tecAsignado && !a.asignado_a) a.asignado_a = tecAsignado;
-  if (a.ot_asignada) {
-    const ot = DB.ordenes.find(o => o.id === a.ot_asignada);
-    if (ot && ot.estado !== 'Completada') {
-      ot.estado = 'Completada';
-      ot.fecha_cierre = a.fecha_cierre;
-      ot.resultado = `${accion} — ${a.servicio_restablecido === 'Si' ? 'Servicio restablecido' : 'Pendiente'}`;
-    }
-  }
-  addHistorial('averia_cerrada', { id: avId, causa, zona: a.zona, cerrado_por: SESSION.user });
+  const av = DB.averias.find(a => a.id_averia === avId);
+  if (!av) return;
+  if (!confirm(`¿Marcar la avería ${avId} como resuelta?`)) return;
+  av.estado_gestion = 'Cerrada';
+  av.fecha_cierre = new Date().toISOString().slice(0,16).replace('T',' ');
+  addHistorial('averia_cerrada', { id: avId, zona: av.zona });
   saveDB();
   closeModal();
-  alert(`Avería ${avId} cerrada exitosamente.`);
   renderView('averias-admin');
 }
 
@@ -4854,34 +4469,16 @@ function verAveriaDetalleTec(id) {
   `);
 }
 
-
-function guardarBorradorDesdeForm(avId) {
-  const datos = {
-    causa: document.getElementById('ptec-causa')?.value || '',
-    accion: document.getElementById('ptec-accion')?.value || '',
-    att_antes: document.getElementById('ptec-att-antes')?.value || '',
-    att_despues: document.getElementById('ptec-att-despues')?.value || '',
-    tiempo: document.getElementById('ptec-tiempo')?.value || '',
-    restablecido: document.getElementById('ptec-restablecido')?.value || '',
-    obs: document.getElementById('ptec-obs')?.value || ''
-  };
-  guardarBorradorPlanilla(avId, datos);
-  alert(`✅ Borrador guardado para avería ${avId}.\nPodrás completarlo cuando tengas conexión.`);
-  closeModal();
-}
-
 function abrirPlanillaTecnico(avId) {
   const a = DB.averias.find(x => x.id_averia === avId);
   if (!a) return;
   const sev = SEV_LABELS[a.severidad] || SEV_LABELS[5];
-  const borrador = cargarBorradorPlanilla(avId);
-  showModal(`Planilla de Cierre — Avería ${avId}${borrador ? ' 📋 (borrador guardado)' : ''}`, `
+  showModal(`Planilla de Cierre — Avería ${avId}`, `
     <div style="background:#FFF3E0;border-radius:8px;padding:10px 14px;margin-bottom:14px;border-left:3px solid var(--orange)">
       <div style="font-weight:700;font-size:13px">${a.nombre}</div>
       <div style="font-size:12px;color:var(--muted)">${a.direccion} · Tel: ${a.telefono||'—'} ${a.contacto?'· Contacto: '+a.contacto:''}</div>
       <div style="margin-top:4px"><span class="pill ${sev.pill}">${sev.label}</span> · Resp. máx: ${sev.resp} · Resolución: ${sev.resol}</div>
     </div>
-    ${borrador ? `<div style="background:#E8F5E9;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#2E7D32;border-left:3px solid var(--green)">📋 Borrador guardado el ${new Date(borrador.guardado).toLocaleString('es-VE')} — Los campos se han rellenado automáticamente</div>` : ''}
     <div class="form-row">
       <div class="form-col">
         <label>Causa Raíz Identificada</label>
@@ -4948,33 +4545,11 @@ function abrirPlanillaTecnico(avId) {
     </div>
   `, `
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-outline btn-sm" onclick="guardarBorradorDesdeForm('${avId}')" style="border-color:var(--orange);color:var(--orange)" title="Guardar como borrador para completar después">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-      Guardar borrador
-    </button>
     <button class="btn btn-green" onclick="cerrarAveriaTecnico('${avId}')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
       Cerrar Avería
     </button>
   `);
-  // Pre-rellenar campos si hay borrador guardado
-  if (borrador) {
-    setTimeout(() => {
-      const fields = [
-        ['ptec-causa', borrador.causa],
-        ['ptec-accion', borrador.accion],
-        ['ptec-att-antes', borrador.att_antes],
-        ['ptec-att-despues', borrador.att_despues],
-        ['ptec-tiempo', borrador.tiempo],
-        ['ptec-restablecido', borrador.restablecido],
-        ['ptec-obs', borrador.obs]
-      ];
-      fields.forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el && val) el.value = val;
-      });
-    }, 100);
-  }
 }
 
 function cerrarAveriaTecnico(avId) {
@@ -5004,7 +4579,6 @@ function cerrarAveriaTecnico(avId) {
     }
   }
   addHistorial('averia_cerrada', { id: avId, causa, zona: a.zona, tecnico: SESSION.user });
-  eliminarBorradorPlanilla(avId); // Limpiar borrador al cerrar exitosamente
   saveDB();
   closeModal();
   alert(`Avería ${avId} cerrada exitosamente.`);
@@ -5027,205 +4601,52 @@ function showLoginScreen() {
   hideSplash();
 }
 
-
-
-/* ============================================================
-   NOTIFICACIONES PUSH — Firebase Cloud Messaging (FCM)
-   ============================================================ */
-// VAPID Key pública de Firebase Console → Configuración del proyecto → Cloud Messaging → Certificados web push
-// ⚠️ IMPORTANTE: Reemplaza esta clave con la tuya desde Firebase Console
-const FCM_VAPID_KEY = 'BPp19U5RihUvgpusDYhrsRP2R7UxAVHH4-fILGBq-ThUt5cQq31DYqSWM80pSHNJvQ_FAYPsgsefvqZd09taX7o';
-
-async function iniciarNotificaciones() {
-  if (!('Notification' in window)) {
-    console.warn('Este navegador no soporta notificaciones');
-    return false;
-  }
-  if (!window._FB?.messaging || !window._FB?.getToken) {
-    console.warn('FCM no disponible en este navegador/dispositivo');
-    return false;
-  }
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('Permiso de notificaciones denegado');
-      return false;
-    }
-    // Obtener token FCM
-    const { messaging, getToken, db, doc, updateDoc } = window._FB;
-    const token = await getToken(messaging, { vapidKey: FCM_VAPID_KEY });
-    if (token) {
-      console.log('✅ FCM Token obtenido:', token.substring(0, 20) + '...');
-      // Guardar token en perfil del usuario en Firestore
-      if (SESSION?.uid) {
-        await updateDoc(doc(db, 'optinet_users', SESSION.uid), { fcm_token: token });
-      }
-      // También guardar en DB local
-      const user = DB.users.find(u => u.user === SESSION?.user);
-      if (user) user.fcm_token = token;
-      SESSION.fcm_token = token;
-      saveDB();
-      // Escuchar mensajes cuando la app está en primer plano
-      const { onMessage } = window._FB;
-      onMessage(messaging, (payload) => {
-        console.log('Notificación recibida en primer plano:', payload);
-        mostrarNotificacionInterna(
-          payload.notification?.title || 'Optinet',
-          payload.notification?.body || '',
-          payload.data
-        );
-      });
-      return true;
-    }
-  } catch(e) {
-    console.warn('Error al obtener token FCM:', e.message);
-  }
-  return false;
-}
-
-function mostrarNotificacionInterna(titulo, cuerpo, data) {
-  // Banner interno dentro de la app
-  const notif = document.createElement('div');
-  notif.style.cssText = 'position:fixed;top:16px;right:16px;background:#fff;border:1.5px solid var(--blue);border-radius:10px;padding:14px 18px;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:99999;animation:slideIn .3s ease';
-  notif.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <div style="background:var(--blue);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      </div>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:13px;color:var(--txt)">${titulo}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:3px">${cuerpo}</div>
-      </div>
-      <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0;flex-shrink:0">×</button>
-    </div>`;
-  document.body.appendChild(notif);
-  setTimeout(() => { if (notif.parentNode) notif.remove(); }, 8000);
-}
-
-// Enviar notificación push a un usuario específico via Firestore trigger
-// (Requiere Cloud Function en Firebase para el envío real)
-// Por ahora: guarda la notificación en Firestore para que la Cloud Function la procese
-async function enviarNotificacionPush(destinatarioUser, titulo, cuerpo, data = {}) {
-  if (!window._FB_READY) return;
-  try {
-    const { db, collection, addDoc, serverTimestamp } = window._FB;
-    await addDoc(collection(db, 'optinet_notificaciones'), {
-      destinatario: destinatarioUser,
-      titulo,
-      cuerpo,
-      data,
-      enviado_por: SESSION?.user || 'sistema',
-      fecha: serverTimestamp(),
-      leido: false
-    });
-  } catch(e) {
-    console.warn('Error enviando notificación:', e.message);
-  }
-}
-
-// Solicitar permiso de notificaciones al iniciar sesión (con diálogo amigable)
-function pedirPermisoNotificaciones() {
-  if (!('Notification' in window) || Notification.permission === 'granted') {
-    if (Notification.permission === 'granted') iniciarNotificaciones();
-    return;
-  }
-  if (Notification.permission === 'denied') return;
-  // Mostrar diálogo amigable antes de pedir permiso del sistema
-  setTimeout(() => {
-    if (document.getElementById('notif-permission-banner')) return;
-    const banner = document.createElement('div');
-    banner.id = 'notif-permission-banner';
-    banner.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#fff;border:1.5px solid var(--blue);border-radius:12px;padding:16px 20px;max-width:380px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,.2);z-index:99997;';
-    banner.innerHTML = `
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        <div style="background:#E8F0FE;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px">¿Activar notificaciones?</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Recibe alertas cuando se te asignen averías o cuando haya nuevas cargas de datos.</div>
-          <div style="display:flex;gap:8px">
-            <button onclick="iniciarNotificaciones();document.getElementById('notif-permission-banner')?.remove()" class="btn btn-blue btn-sm" style="flex:1">Activar</button>
-            <button onclick="document.getElementById('notif-permission-banner')?.remove()" class="btn btn-outline btn-sm" style="flex:1">Ahora no</button>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(banner);
-  }, 3000); // Esperar 3 segundos después del login
-}
-
-/* ============================================================
-   MODO OFFLINE — Detección de conexión y borradores
-   ============================================================ */
-let _isOnline = navigator.onLine;
-
-function initOfflineDetection() {
-  // Banner de estado offline
-  const banner = document.createElement('div');
-  banner.id = 'offline-banner';
-  banner.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;background:#E65100;color:#fff;padding:8px 16px;text-align:center;font-size:13px;font-weight:600;z-index:99998;';
-  banner.innerHTML = '⚠️ Sin conexión — Los cambios se guardarán localmente y se sincronizarán cuando vuelva la conexión';
-  document.body.appendChild(banner);
-
-  function updateOnlineStatus() {
-    _isOnline = navigator.onLine;
-    const b = document.getElementById('offline-banner');
-    if (b) b.style.display = _isOnline ? 'none' : 'block';
-    const syncInd = document.getElementById('sync-indicator');
-    if (syncInd && !_isOnline) {
-      syncInd.style.background = '#E65100';
-      syncInd.title = 'Sin conexión — modo offline';
-    }
-    if (_isOnline && window._FB_READY && window._FB.auth.currentUser) {
-      // Reconectado: sincronizar cambios pendientes
-      pushToFirestore().catch(e => console.warn('Sync on reconnect error:', e));
-    }
-  }
-
-  window.addEventListener('online', updateOnlineStatus);
-  window.addEventListener('offline', updateOnlineStatus);
-  updateOnlineStatus();
-}
-
-// Guardar borrador de planilla de cierre en localStorage
-function guardarBorradorPlanilla(avId, datos) {
-  const borradores = JSON.parse(localStorage.getItem('optinet_borradores') || '{}');
-  borradores[avId] = { ...datos, guardado: new Date().toISOString() };
-  localStorage.setItem('optinet_borradores', JSON.stringify(borradores));
-}
-
-function cargarBorradorPlanilla(avId) {
-  const borradores = JSON.parse(localStorage.getItem('optinet_borradores') || '{}');
-  return borradores[avId] || null;
-}
-
-function eliminarBorradorPlanilla(avId) {
-  const borradores = JSON.parse(localStorage.getItem('optinet_borradores') || '{}');
-  delete borradores[avId];
-  localStorage.setItem('optinet_borradores', JSON.stringify(borradores));
-}
-
-function getBorradoresCount() {
-  return Object.keys(JSON.parse(localStorage.getItem('optinet_borradores') || '{}')).length;
-}
-
 async function initApp() {
   // Cargar datos locales inmediatamente
   loadDB();
 
-  const splashMsg = document.getElementById('splash-msg');
-
   if (window._FB_READY) {
-    // Firebase ya cargó — sincronizar y mostrar login
-    if (splashMsg) splashMsg.textContent = 'Sincronizando datos...';
-    try {
-      await pullFromFirestore();
-      if (splashMsg) splashMsg.textContent = '¡Listo!';
-    } catch(e) {
-      console.warn('Error al sincronizar con Firestore:', e);
-      if (splashMsg) splashMsg.textContent = 'Modo local';
-    }
-    showLoginScreen();
+    const splashMsg = document.getElementById('splash-msg');
+    if (splashMsg) splashMsg.textContent = 'Verificando sesión...';
+    const { auth, onAuthStateChanged, db, doc, getDoc } = window._FB;
+
+    // Usar onAuthStateChanged para detectar sesión activa (persistencia LOCAL)
+    onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Hay sesión activa — restaurar automáticamente sin pedir login
+        if (splashMsg) splashMsg.textContent = 'Restaurando sesión...';
+        try {
+          await pullFromFirestore();
+          if (splashMsg) splashMsg.textContent = '¡Listo!';
+        } catch(e) {
+          console.warn('Firestore sync error:', e);
+          if (splashMsg) splashMsg.textContent = 'Modo local';
+        }
+        // Buscar perfil del usuario en DB
+        let userProfile = DB.users.find(u => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
+        if (!userProfile) {
+          // Intentar obtener desde Firestore
+          try {
+            const userSnap = await getDoc(doc(db, 'optinet_users', firebaseUser.uid));
+            if (userSnap.exists()) {
+              userProfile = userSnap.data();
+            }
+          } catch(e) { console.warn('Error obteniendo perfil:', e); }
+        }
+        if (userProfile) {
+          completarLogin(userProfile);
+        } else {
+          // No se encontró perfil, mostrar login
+          showLoginScreen();
+        }
+      } else {
+        // No hay sesión activa — mostrar pantalla de login
+        try {
+          await pullFromFirestore();
+        } catch(e) { console.warn('Firestore sync error:', e); }
+        showLoginScreen();
+      }
+    });
   } else {
     // Esperar a que Firebase esté listo (máximo 5 segundos)
     let waited = 0;
@@ -5233,6 +4654,7 @@ async function initApp() {
       waited += 200;
       if (window._FB_READY) {
         clearInterval(waitInterval);
+        const splashMsg = document.getElementById('splash-msg');
         if (splashMsg) splashMsg.textContent = 'Sincronizando datos...';
         try {
           await pullFromFirestore();
@@ -5241,7 +4663,6 @@ async function initApp() {
       } else if (waited >= 5000) {
         clearInterval(waitInterval);
         console.warn('Firebase no disponible, usando modo local');
-        if (splashMsg) splashMsg.textContent = 'Modo local';
         showLoginScreen();
       }
     }, 200);
@@ -5255,25 +4676,59 @@ initApp();
 </script>
 
 <script>
-// Stub para compatibilidad con SW antiguo
-function mostrarNotificacionActualizacion() { /* eliminado — sin banners de actualización */ }
-
-// PWA Service Worker — registro simple sin banners de actualización
+// PWA Service Worker registration con detección automática de actualizaciones
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // SW de Firebase Messaging para notificaciones push en background
-    navigator.serviceWorker.register('./firebase-messaging-sw.js').catch(() => {});
-    // SW principal de la PWA
     navigator.serviceWorker.register('./service-worker.js')
       .then(reg => {
-        console.log('[App] SW registrado correctamente.');
-        // Verificar actualizaciones silenciosamente al volver a la app
+        console.log('[App] SW registrado, versión activa.');
+
+        // Detectar cuando hay una nueva versión esperando activarse
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Hay una nueva versión lista — mostrar notificación al usuario
+              mostrarNotificacionActualizacion();
+            }
+          });
+        });
+
+        // Verificar actualizaciones cada vez que el usuario vuelve a la app
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+          if (document.visibilityState === 'visible') {
+            reg.update().catch(() => {});
+          }
         });
       })
       .catch(err => console.log('[App] SW no disponible:', err));
+
+    // Escuchar mensajes del SW (nueva versión activada)
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'SW_UPDATED') {
+        console.log('[App] Nueva versión activa:', event.data.version);
+        // Recargar silenciosamente para aplicar la nueva versión
+        window.location.reload();
+      }
+    });
   });
+}
+
+// Mostrar banner de actualización disponible
+function mostrarNotificacionActualizacion() {
+  // Evitar mostrar múltiples banners
+  if (document.getElementById('update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#0033A0;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:99999;font-size:14px;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
+  banner.innerHTML = `
+    <span>🔄 Nueva versión de Optinet disponible</span>
+    <div style="display:flex;gap:10px">
+      <button onclick="this.closest('#update-banner').remove()" style="background:transparent;color:#aac;border:1px solid #aac;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Después</button>
+      <button onclick="window.location.reload()" style="background:#00A9E0;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Actualizar ahora</button>
+    </div>`;
+  document.body.appendChild(banner);
 }
 
 // PWA install prompt
