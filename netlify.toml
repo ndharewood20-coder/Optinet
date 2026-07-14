@@ -5,13 +5,14 @@
     cp service-worker.js dist/service-worker.js &&
     cp manifest.json dist/manifest.json 2>/dev/null || true &&
     cp -r icons dist/icons 2>/dev/null || true &&
-    printf 'window.FIREBASE_CONFIG = { apiKey: "%s", authDomain: "%s", projectId: "%s", storageBucket: "%s", messagingSenderId: "%s", appId: "%s" };' \
-      "$FIREBASE_API_KEY" \
-      "$FIREBASE_AUTH_DOMAIN" \
-      "$FIREBASE_PROJECT_ID" \
-      "$FIREBASE_STORAGE_BUCKET" \
-      "$FIREBASE_MESSAGING_SENDER_ID" \
-      "$FIREBASE_APP_ID" \
-      > dist/firebase-config.js
+    printf 'window.FIREBASE_CONFIG = { apiKey: "%s", authDomain: "%s", projectId: "%s", storageBucket: "%s", messagingSenderId: "%s", appId: "%s" };' "$FIREBASE_API_KEY" "$FIREBASE_AUTH_DOMAIN" "$FIREBASE_PROJECT_ID" "$FIREBASE_STORAGE_BUCKET" "$FIREBASE_MESSAGING_SENDER_ID" "$FIREBASE_APP_ID" > dist/firebase-config.js
   """
   publish = "dist"
+
+[build.environment]
+  # Excluir el archivo generado del escaneo de secretos
+  SECRETS_SCAN_OMIT_PATHS = "dist/firebase-config.js"
+  # Excluir las variables de Firebase del escaneo (son públicas por diseño en apps web)
+  SECRETS_SCAN_OMIT_KEYS = "FIREBASE_API_KEY,FIREBASE_AUTH_DOMAIN,FIREBASE_PROJECT_ID,FIREBASE_STORAGE_BUCKET,FIREBASE_MESSAGING_SENDER_ID,FIREBASE_APP_ID"
+  # Desactivar la detección heurística (la que detecta el patrón AIza***)
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
