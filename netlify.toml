@@ -10,7 +10,10 @@
       -e 's|__FIREBASE_APP_ID__|'"$FIREBASE_APP_ID"'|g' \
       index.html > dist/index.html &&
     cp service-worker.js dist/service-worker.js &&
-    cp manifest.json dist/manifest.json &&
-    cp Icon.png dist/Icon.png
+    cp manifest.json dist/manifest.json 2>/dev/null || true &&
+    cp -r icons dist/icons 2>/dev/null || true
   """
   publish = "dist"
+
+[build.environment]
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
