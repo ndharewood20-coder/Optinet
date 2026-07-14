@@ -1195,13 +1195,7 @@ async function doLogin() {
         const cred = await signInWithEmailAndPassword(auth, email, p);
         // Obtener perfil del usuario desde Firestore
         const { doc, getDoc } = window._FB;
-        let userSnap;
-        try {
-          userSnap = await withTimeout(getDoc(doc(db, 'optinet_users', cred.user.uid)), 5000, 'getDoc perfil');
-        } catch(profErr) {
-          console.warn('No se pudo leer el perfil desde Firestore, usando datos locales:', profErr);
-          userSnap = { exists: () => false };
-        }
+        const userSnap = await getDoc(doc(db, 'optinet_users', cred.user.uid));
         let userProfile = null;
         if (userSnap.exists()) {
           userProfile = userSnap.data();
@@ -1213,12 +1207,8 @@ async function doLogin() {
           // Crear perfil básico si no existe
           userProfile = DB.users.find(x => x.user === u) || { user: u, role: 'tecnico', name: u, zona: '', cuadrilla: '', email };
         }
-        // Sincronizar datos desde Firestore antes de mostrar la app (sin colgar el login)
-        try {
-          await withTimeout(pullFromFirestore(), 5000, 'pullFromFirestore login');
-        } catch(syncErr) {
-          console.warn('Sincronización omitida al iniciar sesión:', syncErr);
-        }
+        // Sincronizar datos desde Firestore antes de mostrar la app
+        await pullFromFirestore();
         // Actualizar perfil con datos más recientes de DB
         const freshProfile = DB.users.find(x => x.user === u || x.email === email) || userProfile;
         completarLogin(freshProfile);
@@ -4801,17 +4791,6 @@ function cerrarAveriaTecnico(avId) {
 /* ============================================================
    INIT — Firebase + LocalStorage
    ============================================================ */
-// Envuelve una promesa para que nunca bloquee más de `ms` milisegundos.
-// Evita que un getDoc/pullFromFirestore que no responde deje la pantalla
-// "pensando" para siempre.
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('timeout: ' + (label || 'operación'))), ms))
-  ]);
-}
-
 function hideSplash() {
   const splash = document.getElementById('splash-screen');
   if (splash) {
@@ -4820,48 +4799,42 @@ function hideSplash() {
   }
 }
 
-let _loginScreenShown = false;
+let _loginShown = false;
 function showLoginScreen() {
-  if (_loginScreenShown) return;
-  _loginScreenShown = true;
+  if (_loginShown) return;
+  _loginShown = true;
   document.getElementById('login-screen').classList.remove('hidden');
   hideSplash();
 }
 
 async function initApp() {
-  // Cargar datos locales inmediatamente
   loadDB();
 
-  // Red de seguridad: pase lo que pase, mostrar el login como máximo en 7s
-  // para que el splash nunca se quede "Conectando..." indefinidamente.
-  setTimeout(showLoginScreen, 7000);
+  // Red de seguridad: mostrar login en 8s pase lo que pase
+  const safetyTimer = setTimeout(showLoginScreen, 8000);
 
-  // Esperar (brevemente) a que Firebase esté listo, sin bloquear más de 5s.
-  let waited = 0;
-  while (!window._FB_READY && waited < 5000) {
-    await new Promise(r => setTimeout(r, 100));
-    waited += 100;
-  }
+  // Esperar firebase-ready (evento) o timeout de 5s
+  await new Promise(resolve => {
+    if (window._FB_READY) return resolve();
+    document.addEventListener('firebase-ready', resolve, { once: true });
+    setTimeout(resolve, 5000);
+  });
 
   if (window._FB_READY) {
     const splashMsg = document.getElementById('splash-msg');
-    if (splashMsg) splashMsg.textContent = 'Sincronizando datos...';
+    if (splashMsg) splashMsg.textContent = 'Sincronizando...';
     try {
-      // Sincronizar con Firestore, pero sin colgar el arranque si no responde.
-      await withTimeout(pullFromFirestore(), 4000, 'pullFromFirestore');
-      if (splashMsg) splashMsg.textContent = '¡Listo!';
-    } catch(e) {
-      console.warn('Sincronización omitida (timeout o error), usando modo local:', e);
-      if (splashMsg) splashMsg.textContent = 'Modo local';
-    }
-  } else {
-    console.warn('Firebase no disponible, usando modo local');
+      await Promise.race([
+        pullFromFirestore(),
+        new Promise(r => setTimeout(r, 4000))
+      ]);
+    } catch(e) { console.warn('Sync omitida:', e); }
   }
 
+  clearTimeout(safetyTimer);
   showLoginScreen();
 }
 
-// Iniciar la app
 initApp();
 
 
