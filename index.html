@@ -16,26 +16,24 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyAJXumzB7iyw5BUStuRg3oBZUUvenmVLNg",
-    authDomain: "optinet-gpon.firebaseapp.com",
-    projectId: "optinet-gpon",
-    storageBucket: "optinet-gpon.firebasestorage.app",
-    messagingSenderId: "618343246245",
-    appId: "1:618343246245:web:baba9fcd33f73c0799604c"
+    apiKey: "__FIREBASE_API_KEY__",
+    authDomain: "__FIREBASE_AUTH_DOMAIN__",
+    projectId: "__FIREBASE_PROJECT_ID__",
+    storageBucket: "__FIREBASE_STORAGE_BUCKET__",
+    messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+    appId: "__FIREBASE_APP_ID__"
   };
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  // Persistencia LOCAL: la sesión se mantiene aunque se cierre el navegador/app
-  setPersistence(auth, browserLocalPersistence).catch(e => console.warn('Persistence error:', e));
 
   // Exponer globalmente para uso desde scripts no-module
-  window._FB = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
+  window._FB = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
   window._FB_READY = true;
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -904,21 +902,21 @@ tbody tr:last-child td { border-bottom: none; }
    DATA LAYER — localStorage persistence
    ============================================================ */
 const ZONES = [
-  'ACARIGUA','ALTAVISTA','ALTO BARINAS','BARCELONA DIGITAL','BELLA VISTA CPA',
-  'BETIJOQUE','BOLEITA','BTO.SANTA ISABEL','CAGUA','CAMURI GRANDE',
-  'CARACAS CPA','CARICUAO_II','CENTRO NACIONAL','CHACAO','CHAGUARAMOS',
-  'CIUDAD ALIANZA','CIUDAD CARIBIA','COCHE','COLONIA TOVAR','CORO',
-  'CUMANA','CUMANACOA','EL CAFETAL_II','EL CALLAO','EL GURI',
-  'EL HATILLO','EL TIGRE DIGITAL','ELORZA','FCO FAJARDO III','FRANCISCO SALIAS',
-  'GUARENAS TRAPICHITO','GUATIRE','HIGUEROTE','LA PASTORA','LA SABANITA',
-  'LA SALLE CPA','LA VICTORIA','LAS INDUSTRIAS','LAS MERCEDES CPA','LECHERIAS',
-  'LOS CAOBOS','LOS OLIVOS','LOS TEQUES','MACARACUAY','MARACAY CENTRO',
-  'MATURIN CPA','NAIGUATA','OCUMARE DEL TUY','PABX-ANZOATEGUI','PARAGUAIPOA',
-  'PIRINEOS','PUERTO AYACUCHO II','PURTO ORDAZ','REGISTRO DE CENTRAL NO EXISTE','RICARDO ZULOAGA',
-  'SAN CARLOS','SAN CRISTOBAL CENTRO','SAN FELIPE','SAN FRANCISCO','SAN MIGUEL',
-  'SAN RAFAEL-PORLAMAR','SN FERNADO DE APURE','SN J LOS MORROS','SN.RAF.DEL MOJAN','TUCUPIDO',
-  'TUCUPITA','UNARE','UPATA','URBINA','VALERA',
-  '900 AVANZADO'
+  '900 AVANZADO','ACARIGUA','ALTAVISTA','ALTO BARINAS','BARCELONA DIGITAL',
+  'BELLA VISTA CPA','BETIJOQUE','BOLEITA','BTO.SANTA ISABEL','CAGUA',
+  'CAMURI GRANDE','CARACAS CPA','CARICUAO_II','CENTRO NACIONAL','CHACAO',
+  'CHAGUARAMOS','CIUDAD ALIANZA','CIUDAD CARIBIA','COCHE','COLONIA TOVAR',
+  'CORO','CUMANA','CUMANACOA','EL CAFETAL_II','EL CALLAO','EL GURI',
+  'EL HATILLO','EL TIGRE DIGITAL','ELORZA','FCO FAJARDO III',
+  'FRANCISCO SALIAS','GUARENAS TRAPICHITO','GUATIRE','HIGUEROTE',
+  'LA PASTORA','LA SABANITA','LA SALLE CPA','LA VICTORIA','LAS INDUSTRIAS',
+  'LAS MERCEDES CPA','LECHERIAS','LOS CAOBOS','LOS OLIVOS','LOS TEQUES',
+  'MACARACUAY','MARACAY CENTRO','MATURIN CPA','NAIGUATA','OCUMARE DEL TUY',
+  'PABX-ANZOATEGUI','PARAGUAIPOA','PIRINEOS','PUERTO AYACUCHO II',
+  'PURTO ORDAZ','REGISTRO DE CENTRAL NO EXISTE','RICARDO ZULOAGA',
+  'SAN CARLOS','SAN CRISTOBAL CENTRO','SAN FELIPE','SAN FRANCISCO',
+  'SAN MIGUEL','SAN RAFAEL-PORLAMAR','SN FERNADO DE APURE','SN J LOS MORROS',
+  'SN.RAF.DEL MOJAN','TUCUPIDO','TUCUPITA','UNARE','UPATA','URBINA','VALERA'
 ];
 
 // Función para detectar y agregar zonas nuevas desde las averías cargadas
@@ -929,23 +927,8 @@ function syncZonesFromAverias() {
   zonasEnAverias.forEach(z => {
     if (!ZONES.includes(z)) { ZONES.push(z); added++; }
   });
-  if (added > 0) {
-    // Ordenar alfabéticamente pero mantener '900 AVANZADO' al final
-    const has900 = ZONES.includes('900 AVANZADO');
-    const filtered = ZONES.filter(z => z !== '900 AVANZADO').sort();
-    ZONES.length = 0;
-    filtered.forEach(z => ZONES.push(z));
-    if (has900) ZONES.push('900 AVANZADO');
-    console.log(`Zonas nuevas detectadas y agregadas: ${added}`);
-  }
+  if (added > 0) { ZONES.sort(); console.log(`Zonas nuevas detectadas y agregadas: ${added}`); }
 }
-
-// Helper: devuelve la zona predeterminada del usuario actual (basada en su perfil)
-function getDefaultUserZone() {
-  if (SESSION && SESSION.zona && SESSION.zona.trim()) return SESSION.zona.trim();
-  return ZONES[0];
-}
-
 
 const FAULT_CATEGORIES = {
   'NNV':  { label: 'No Navega (NNV)', sev: 2, proc: 'MC-04', color: '#C62828' },
@@ -1035,6 +1018,27 @@ function getDefaultDB() {
 let DB = {};
 let SESSION = null;
 let activeCharts = {};
+
+// ── MULTI-ZONA: zonas activas del usuario (principal + extras) ──────────────
+function getZonasActivas() {
+  if (!SESSION) return [];
+  const principal = SESSION.zona ? [SESSION.zona] : [];
+  const extras = (SESSION.zonas_extra || []).filter(z => z && z.trim());
+  return [...new Set([...principal, ...extras])];
+}
+
+async function guardarZonasExtra(zonasExtra) {
+  const user = DB.users.find(u => u.user === SESSION.user);
+  if (user) user.zonas_extra = zonasExtra;
+  SESSION.zonas_extra = zonasExtra;
+  saveDB();
+  if (window._FB_READY && SESSION.uid) {
+    try {
+      const { db, doc, updateDoc } = window._FB;
+      await updateDoc(doc(db, 'optinet_users', SESSION.uid), { zonas_extra: zonasExtra });
+    } catch(e) { console.warn('Error guardando zonas_extra:', e); }
+  }
+}
 
 /* ============================================================
    FIREBASE PERSISTENCE — loadDB, saveDB, syncDB
@@ -1153,7 +1157,7 @@ function initFirebaseSync() {
       document.querySelectorAll('.nav-badge').forEach(b => {
         const navId = b.closest('[data-nav]')?.dataset?.nav;
         if (navId) {
-          const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE_ZONA:NAV_TECNICO)].find(n=>n.id===navId);
+          const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE:NAV_TECNICO)].find(n=>n.id===navId);
           if (item?.badge) b.textContent = item.badge() || '';
         }
       });
@@ -1324,11 +1328,10 @@ const NAV_TECNICO = [
 ];
 const NAV_GERENTE_ZONA = [
   { id: 'dashboard', label: 'Panel de KPIs', icon: iconChart(), section: 'Principal' },
-  { id: 'ordenes', label: 'Órdenes de Trabajo', icon: iconClipboard(), section: 'Gestión', badge: () => DB.ordenes.filter(o=>o.zona===SESSION.zona && o.estado!=='Completada').length },
-  { id: 'averias-admin', label: 'Averías', icon: iconAlert(), section: 'Gestión', badge: () => DB.averias.filter(a=>a.estado_gestion==='Abierta' && a.zona===SESSION.zona).length },
+  { id: 'ordenes', label: 'Órdenes de Trabajo', icon: iconClipboard(), section: 'Gestión', badge: () => { const zz=getZonasActivas(); return DB.ordenes.filter(o=>zz.includes(o.zona)&&o.estado!=='Completada').length; } },
+  { id: 'averias-admin', label: 'Averías', icon: iconAlert(), section: 'Gestión', badge: () => { const zz=getZonasActivas(); return DB.averias.filter(a=>a.estado_gestion==='Abierta'&&zz.includes(a.zona)).length; } },
   { id: 'historial', label: 'Historial', icon: iconHistory(), section: 'Gestión' },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' },
-  { id: 'usuarios', label: 'Usuarios', icon: iconUsers(), section: 'Administración' },
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
 ];
 
@@ -1686,12 +1689,13 @@ Completadas: ${k.byStatus['Completada']||0}
    ============================================================ */
 function renderOrdenesAdmin(c) {
   // For gerente_zona, only show their zone's techs; for admin show all
-  const zonaFiltroOT = SESSION.role === 'gerente_zona' ? SESSION.zona : null;
-  const tecs = zonaFiltroOT
-    ? DB.users.filter(u => u.role === 'tecnico' && u.zona === zonaFiltroOT)
+  const zonasOT = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
+  const zonaFiltroOT = zonasOT && zonasOT.length === 1 ? zonasOT[0] : null;
+  const tecs = zonasOT
+    ? DB.users.filter(u => u.role === 'tecnico' && zonasOT.includes(u.zona))
     : DB.users.filter(u => u.role === 'tecnico');
-  const averiasAbiertas = zonaFiltroOT ?
-    DB.averias.filter(a => a.estado_gestion === 'Abierta' && a.zona === zonaFiltroOT) :
+  const averiasAbiertas = zonasOT ?
+    DB.averias.filter(a => a.estado_gestion === 'Abierta' && zonasOT.includes(a.zona)) :
     DB.averias.filter(a => a.estado_gestion === 'Abierta');
   c.innerHTML = `
   <div class="page-header">
@@ -1725,7 +1729,7 @@ function renderOrdenesAdmin(c) {
               onfocus="document.getElementById('ot-zona-list').style.display='block'"
               onblur="setTimeout(()=>{document.getElementById('ot-zona-list').style.display='none';updateOTAveriasFilter();updateOTTecFilter();},200)"
               style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
-              value="${getDefaultUserZone()}" readonly onclick="this.removeAttribute('readonly');this.select()">
+              value="${ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
             <div id="ot-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
               ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaOT('${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
             </div>
@@ -2100,10 +2104,7 @@ function exportHistorial() {
 function renderUsuarios(c) {
   c.innerHTML = `
   <div class="page-header">
-    <div>
-      <div class="page-title">Gestión de Usuarios y Roles</div>
-      <div class="page-sub">${SESSION.role === 'gerente_zona' ? 'Puedes crear técnicos y gerentes de zona en cualquier zona' : 'Administración global de usuarios'}</div>
-    </div>
+    <div class="page-title">Gestión de Usuarios y Roles</div>
   </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchUsrTab(this,'usuarios')">Usuarios</button>
@@ -2118,11 +2119,7 @@ function renderUsuarios(c) {
       <div class="form-col"><label>Contraseña</label><input type="password" id="u-pass" placeholder="contraseña"></div>
     </div>
     <div class="form-row">
-      <div class="form-col"><label>Rol</label><select id="u-role">
-        <option value="tecnico">Técnico</option>
-        <option value="gerente_zona">Gerente de Zona</option>
-        ${SESSION.role === 'gerente_general' ? '<option value="gerente_general">Gerente General</option>' : ''}
-      </select></div>
+      <div class="form-col"><label>Rol</label><select id="u-role"><option value="tecnico">Técnico</option><option value="gerente_zona">Gerente de Zona</option></select></div>
       <div class="form-col"><label>Zona Asignada</label>
         <div style="position:relative;display:inline-block;width:100%">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -2131,7 +2128,7 @@ function renderUsuarios(c) {
             onfocus="document.getElementById('u-zona-list').style.display='block'"
             onblur="setTimeout(()=>document.getElementById('u-zona-list').style.display='none',200)"
             style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
-            value="${getDefaultUserZone()}" readonly onclick="this.removeAttribute('readonly');this.select()">
+            value="${ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
           <div id="u-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
             ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaField('u-zona','${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
           </div>
@@ -2157,15 +2154,7 @@ function renderUsuarios(c) {
           <td><span class="pill ${u.role==='gerente_general'?'pill-prog':u.role==='gerente_zona'?'pill-moder':'pill-prev'}">${u.role==='gerente_general'?'Gerente General':u.role==='gerente_zona'?'Gerente de Zona':'Técnico'}</span></td>
           <td>${u.zona}</td>
           <td>${u.cuadrilla||'—'}</td>
-          <td>${
-            // Gerente General puede eliminar a cualquiera excepto a sí mismo
-            SESSION.role === 'gerente_general' && u.user !== SESSION.user
-              ? `<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`
-            // Gerente de Zona puede eliminar técnicos y gerentes de zona de cualquier zona (no gerente_general, no a sí mismo)
-            : SESSION.role === 'gerente_zona' && u.role !== 'gerente_general' && u.user !== SESSION.user
-              ? `<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`
-            : '—'
-          }</td>
+          <td>${u.role!=='gerente_general' && u.role!=='gerente_zona'?`<button class="btn btn-sm btn-red" onclick="eliminarUsuario('${u.user}')">${iconX()} Eliminar</button>`:'—'}</td>
         </tr>`).join('')}</tbody>
       </table>
     </div>
@@ -2176,7 +2165,7 @@ function renderUsuarios(c) {
       <div class="card-header"><div class="card-title">Crear Nueva Cuadrilla</div></div>
       <div class="form-row">
         <div class="form-col"><label>Nombre de la Cuadrilla</label><input id="cq-nombre" placeholder="Ej: Cuadrilla Norte"></div>
-        <div class="form-col"><label>Zona</label>
+        <div class="form-col"><label>Zona Principal</label>
           <div style="position:relative;display:inline-block;width:100%">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" id="cq-zona-search" placeholder="Buscar zona..."
@@ -2184,10 +2173,23 @@ function renderUsuarios(c) {
               onfocus="document.getElementById('cq-zona-list').style.display='block'"
               onblur="setTimeout(()=>{document.getElementById('cq-zona-list').style.display='none';filtrarTecsPorZonaCQ();},200)"
               style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
-              value="${getDefaultUserZone()}" readonly onclick="this.removeAttribute('readonly');this.select()">
+              value="${ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
             <div id="cq-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
               ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaField('cq-zona','${z}','filtrarTecsPorZonaCQ')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-col" style="flex:2">
+          <label>Zonas Adicionales <span style="font-size:11px;color:var(--muted)">(opcional — para cuadrillas que cubren varias zonas)</span></label>
+          <div id="cq-zonas-extra-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:6px;padding:4px 0"></div>
+          <div style="display:flex;gap:8px">
+            <select id="cq-zona-extra-sel" style="flex:1;padding:7px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px">
+              <option value="">— Agregar zona adicional —</option>
+              ${ZONES.map(z=>`<option value="${z}">${z}</option>`).join('')}
+            </select>
+            <button type="button" class="btn btn-outline btn-sm" onclick="agregarZonaCQ()">+ Agregar</button>
           </div>
         </div>
       </div>
@@ -2219,7 +2221,7 @@ function renderUsuarios(c) {
           return `<div class="card" style="margin-bottom:10px;border-left:3px solid var(--cyan)">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
               <div>
-                <div style="font-weight:700;font-size:14px">${cq.nombre} <span class="pill pill-prev">${cq.zona}</span></div>
+                <div style="font-weight:700;font-size:14px">${cq.nombre} ${(cq.zonas||[cq.zona]).map(z=>`<span class="pill pill-prev">${z}</span>`).join(' ')}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:4px">
                   <strong>Líder:</strong> ${lider?.name||cq.lider} &nbsp;·&nbsp;
                   <strong>Integrantes:</strong> ${miembros.join(', ')||'—'}
@@ -2367,6 +2369,12 @@ function guardarEdicionCuadrilla(id) {
   const nombreAnterior = cq.nombre;
   cq.nombre = nuevoNombre;
   cq.zona = nuevaZona;
+  // Preservar zonas adicionales si existen, actualizar zona principal
+  if (cq.zonas) {
+    cq.zonas = [...new Set([nuevaZona, ...cq.zonas.filter(z => z !== cq.zona)])];
+  } else {
+    cq.zonas = [nuevaZona];
+  }
   cq.lider = nuevoLider;
   DB.users.forEach(u => {
     if (u.cuadrilla === nombreAnterior) u.cuadrilla = nuevoNombre;
@@ -2378,9 +2386,37 @@ function guardarEdicionCuadrilla(id) {
   alert(`Cuadrilla "${nuevoNombre}" actualizada exitosamente.`);
 }
 
+// Zonas extra temporales para el formulario de nueva cuadrilla
+let _cqZonasExtra = [];
+
+function agregarZonaCQ() {
+  const sel = document.getElementById('cq-zona-extra-sel');
+  const zona = sel?.value;
+  if (!zona) return;
+  if (!_cqZonasExtra.includes(zona)) _cqZonasExtra.push(zona);
+  sel.value = '';
+  renderChipsCQ();
+}
+
+function quitarZonaCQ(zona) {
+  _cqZonasExtra = _cqZonasExtra.filter(z => z !== zona);
+  renderChipsCQ();
+}
+
+function renderChipsCQ() {
+  const container = document.getElementById('cq-zonas-extra-chips');
+  if (!container) return;
+  container.innerHTML = _cqZonasExtra.map(z =>
+    `<span style="background:#E3F2FD;color:#0277BD;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
+      ${z}
+      <button onclick="quitarZonaCQ('${z}')" style="background:none;border:none;cursor:pointer;color:#0277BD;font-size:15px;line-height:1;padding:0">×</button>
+    </span>`
+  ).join('');
+}
+
 function crearCuadrilla() {
   const nombre = document.getElementById('cq-nombre')?.value?.trim();
-  const zona = document.getElementById('cq-zona-search')?.value || document.getElementById('cq-zona')?.value || '';
+  const zonaPrincipal = document.getElementById('cq-zona-search')?.value || document.getElementById('cq-zona')?.value || '';
   const lider = document.getElementById('cq-lider')?.value;
   if (!nombre) { alert('El nombre de la cuadrilla es requerido'); return; }
   if (!lider) { alert('Debe seleccionar un líder'); return; }
@@ -2388,13 +2424,13 @@ function crearCuadrilla() {
   const miembros = miembrosEl ? [...miembrosEl.selectedOptions].map(o=>o.value) : [];
   if (!DB.cuadrillas) DB.cuadrillas = [];
   const id = 'CQ-' + Date.now();
-  DB.cuadrillas.push({ id, nombre, zona, lider, miembros });
-  // Update the cuadrilla field for all members
+  // Construir array de zonas (principal + extras, sin duplicados)
+  const zonas = [...new Set([zonaPrincipal, ..._cqZonasExtra].filter(z => z))];
+  DB.cuadrillas.push({ id, nombre, zona: zonaPrincipal, zonas, lider, miembros });
   DB.users.forEach(u => {
-    if (u.user === lider || miembros.includes(u.user)) {
-      u.cuadrilla = nombre;
-    }
+    if (u.user === lider || miembros.includes(u.user)) u.cuadrilla = nombre;
   });
+  _cqZonasExtra = [];
   saveDB();
   alert(`Cuadrilla "${nombre}" creada. Líder: ${DB.users.find(u=>u.user===lider)?.name}`);
   renderView('usuarios');
@@ -2413,10 +2449,6 @@ async function crearUsuario() {
   if (!user || !pass) { alert('Usuario y contraseña son requeridos'); return; }
   if (DB.users.find(u => u.user === user)) { alert('Ese usuario ya existe'); return; }
   const newRole = document.getElementById('u-role')?.value || 'tecnico';
-  // Gerente General no puede ser creado por gerente_zona
-  if (SESSION.role === 'gerente_zona' && newRole === 'gerente_general') {
-    alert('No tienes permiso para crear un Gerente General.'); return;
-  }
   const nombre = document.getElementById('u-nombre').value || user;
   const zona = document.getElementById('u-zona-search')?.value || document.getElementById('u-zona')?.value || '';
   const cuadrilla = document.getElementById('u-cuadrilla').value || '';
@@ -2530,6 +2562,8 @@ function cargarAverias(input) {
       const wb = XLSX.read(e.target.result, {type:'binary'});
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
       let added = 0;
+      const loteTimestamp = new Date().toISOString();
+      const loteId = 'lote_' + Date.now();
       rows.forEach(row => {
         const id = String(row.id_averia || row['id_averia'] || '').trim();
         if (!id || DB.averias.find(a => a.id_averia === id)) return;
@@ -2554,7 +2588,8 @@ function cargarAverias(input) {
           cvlan: String(row.cvlan||''), ultimo_comentario: row.ultimo_comentario||'',
           problema_reporte: row.problema_reporte||'', dias_transcurridos: String(row['dias transcurrido desde la apertura']||''),
           area_resolutoria: row.area_resolutoria||'', severidad: cat.sev,
-          estado_gestion: 'Abierta', asignado_a: '', ot_asignada: ''
+          estado_gestion: 'Abierta', asignado_a: '', ot_asignada: '',
+          fecha_carga: loteTimestamp, lote_id: loteId
         });
         added++;
       });
@@ -3750,16 +3785,132 @@ function exportODN() {
 /* ============================================================
    AVERÍAS — ADMINISTRADOR
    ============================================================ */
+/* ── AUTO-ASIGNACIÓN DE AVERÍAS A CUADRILLAS ──────────────────────────────── */
+function autoAsignarAverias() {
+  const zonasActivas = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
+
+  // Averías abiertas sin asignar (filtradas por zonas del gerente si aplica)
+  const averiasDisp = DB.averias.filter(a =>
+    a.estado_gestion === 'Abierta' && !a.asignado_a &&
+    (!zonasActivas || zonasActivas.includes(a.zona))
+  );
+  if (!averiasDisp.length) { alert('No hay averías abiertas sin asignar en tus zonas.'); return; }
+
+  // Cuadrillas disponibles en las zonas del gerente
+  const cuadrillasDisp = (DB.cuadrillas || []).filter(cq =>
+    !zonasActivas || (cq.zonas || [cq.zona]).some(z => zonasActivas.includes(z))
+  );
+  if (!cuadrillasDisp.length) { alert('No hay cuadrillas activas en tus zonas. Crea cuadrillas primero.'); return; }
+
+  // Mapa zona → cuadrilla(s)
+  const mapZonaCQ = {};
+  cuadrillasDisp.forEach(cq => {
+    (cq.zonas || [cq.zona]).forEach(z => {
+      if (!mapZonaCQ[z]) mapZonaCQ[z] = [];
+      mapZonaCQ[z].push(cq);
+    });
+  });
+
+  // Balanceo de carga: contar averías activas por cuadrilla
+  const cargaCQ = {};
+  cuadrillasDisp.forEach(cq => { cargaCQ[cq.id] = 0; });
+  DB.averias.filter(a => a.estado_gestion === 'Abierta' && a.asignado_a).forEach(a => {
+    const cq = cuadrillasDisp.find(c => c.lider === a.asignado_a || (c.miembros||[]).includes(a.asignado_a));
+    if (cq) cargaCQ[cq.id] = (cargaCQ[cq.id] || 0) + 1;
+  });
+
+  // Asignar cada avería a la cuadrilla con menos carga en su zona
+  let asignadas = 0;
+  const detalles = [];
+  averiasDisp.forEach(av => {
+    const cqsZona = mapZonaCQ[av.zona] || [];
+    if (!cqsZona.length) return;
+    // Elegir la cuadrilla con menos carga
+    const cqElegida = cqsZona.reduce((min, cq) => (cargaCQ[cq.id]||0) < (cargaCQ[min.id]||0) ? cq : min);
+    av.asignado_a = cqElegida.lider;
+    cargaCQ[cqElegida.id] = (cargaCQ[cqElegida.id] || 0) + 1;
+    asignadas++;
+    detalles.push({ averia: av.id_averia, zona: av.zona, cuadrilla: cqElegida.nombre });
+  });
+
+  if (!asignadas) {
+    alert('No se pudo asignar ninguna avería. Verifica que las cuadrillas tienen zonas configuradas que coincidan con las averías.');
+    return;
+  }
+
+  addHistorial('auto_asignacion', { count: asignadas, por: SESSION.user });
+  saveDB();
+
+  const sinCQ = averiasDisp.length - asignadas;
+  const resumen = detalles.slice(0, 5).map(d => `• ${d.averia} (${d.zona}) → ${d.cuadrilla}`).join('
+');
+  const extra = detalles.length > 5 ? `
+... y ${detalles.length - 5} más` : '';
+  alert(`✅ Auto-asignación completada:
+${asignadas} averías asignadas${sinCQ > 0 ? '
+⚠️ ' + sinCQ + ' sin cuadrilla para su zona' : ''}
+
+Detalle (primeras 5):
+${resumen}${extra}`);
+  renderView('averias-admin');
+}
+
+/* ── GESTIÓN DE MIS ZONAS ──────────────────────────────────────────────────── */
+function abrirGestorZonas() {
+  const zonaPrincipal = SESSION.zona;
+  const extrasActuales = SESSION.zonas_extra || [];
+  showModal('Gestionar Mis Zonas', `
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        Tu zona principal es <strong>${zonaPrincipal}</strong>. Agrega zonas adicionales para ver y gestionar sus averías.
+      </div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Zonas adicionales activas:</div>
+      <div id="zonas-extra-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:12px">
+        ${extrasActuales.length === 0
+          ? '<span style="color:var(--muted);font-size:12px">Ninguna zona adicional</span>'
+          : extrasActuales.map(z => `
+              <span style="background:#E3F2FD;color:#0277BD;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
+                ${z}
+                <button onclick="quitarZonaExtra('${z}')" style="background:none;border:none;cursor:pointer;color:#0277BD;font-size:15px;line-height:1;padding:0">×</button>
+              </span>`).join('')}
+      </div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px">Agregar zona:</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="nueva-zona-extra" style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px">
+          <option value="">— Seleccionar zona —</option>
+          ${ZONES.filter(z => z !== zonaPrincipal && !extrasActuales.includes(z)).map(z => `<option value="${z}">${z}</option>`).join('')}
+        </select>
+        <button class="btn btn-blue btn-sm" onclick="agregarZonaExtra()">+ Agregar</button>
+      </div>
+    </div>
+  `, `<button class="btn btn-outline" onclick="closeModal()">Cerrar</button>`);
+}
+
+function agregarZonaExtra() {
+  const sel = document.getElementById('nueva-zona-extra');
+  const zona = sel?.value;
+  if (!zona) return;
+  const extras = [...(SESSION.zonas_extra || [])];
+  if (!extras.includes(zona)) extras.push(zona);
+  guardarZonasExtra(extras).then(() => { closeModal(); renderView('averias-admin'); });
+}
+
+function quitarZonaExtra(zona) {
+  const extras = (SESSION.zonas_extra || []).filter(z => z !== zona);
+  guardarZonasExtra(extras).then(() => { closeModal(); renderView('averias-admin'); });
+}
+
 function renderAveriasAdmin(c) {
-  // Filter by zone for gerente_zona
-  const zonaFiltro = SESSION.role === 'gerente_zona' ? SESSION.zona : null;
-  const averiasVista = zonaFiltro ? DB.averias.filter(a => a.zona === zonaFiltro) : DB.averias;
+  // Multi-zona: gerente_zona puede manejar varias zonas
+  const zonasActivas = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
+  const zonaFiltro = zonasActivas && zonasActivas.length === 1 ? zonasActivas[0] : null;
+  const averiasVista = zonasActivas ? DB.averias.filter(a => zonasActivas.includes(a.zona)) : DB.averias;
   const abiertas = averiasVista.filter(a => a.estado_gestion === 'Abierta' && !a.asignado_a);
   const asignadas = averiasVista.filter(a => a.estado_gestion === 'Abierta' && a.asignado_a);
   const cerradas = averiasVista.filter(a => a.estado_gestion === 'Cerrada');
   // Build technician options for bulk assign (filtered by zone for gerente_zona)
-  const tecsDisp = zonaFiltro
-    ? DB.users.filter(u => u.role === 'tecnico' && u.zona === zonaFiltro)
+  const tecsDisp = zonasActivas
+    ? DB.users.filter(u => u.role === 'tecnico' && zonasActivas.includes(u.zona))
     : DB.users.filter(u => u.role === 'tecnico');
   const tecOptions = tecsDisp.map(t => `<option value="${t.user}">${t.name} (${t.zona})</option>`).join('');
 
@@ -3769,10 +3920,27 @@ function renderAveriasAdmin(c) {
       <div class="page-title">Gestión de Averías</div>
       <div class="page-sub">${abiertas.length} abiertas · ${cerradas.length} cerradas · Total: ${averiasVista.length}</div>
     </div>
-    <button class="btn btn-orange btn-sm" onclick="nuevaAveria()">
-      ${iconPlus()} Nueva Avería
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-blue btn-sm" onclick="autoAsignarAverias()" title="Asigna automáticamente las averías abiertas a las cuadrillas según su zona">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Auto-Asignar
+      </button>
+      <button class="btn btn-orange btn-sm" onclick="nuevaAveria()">
+        ${iconPlus()} Nueva Avería
+      </button>
+    </div>
   </div>
+  ${SESSION.role === 'gerente_zona' ? `
+  <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:700;font-size:13px;color:var(--blue)">Mis Zonas:</span>
+      ${getZonasActivas().map(z=>`<span style="background:var(--blue);color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">${z}</span>`).join('')}
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="abrirGestorZonas()" style="font-size:12px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Gestionar Mis Zonas
+    </button>
+  </div>` : ''}
   <div class="stats-row">
     ${[1,2,3,4,5].map(n => {
       const cnt = averiasVista.filter(a => a.severidad === n && a.estado_gestion === 'Abierta').length;
@@ -3789,7 +3957,7 @@ function renderAveriasAdmin(c) {
     <select id="bulk-tec-select" style="border-radius:6px;padding:6px 10px;font-size:13px;border:none;min-width:200px">
       <option value="">— Seleccionar técnico o cuadrilla —</option>
       ${tecOptions.length ? '<optgroup label="Técnicos">' + tecOptions + '</optgroup>' : tecOptions}
-      ${(DB.cuadrillas||[]).filter(cq=>!zonaFiltro||cq.zona===zonaFiltro).length > 0 ? '<optgroup label="Cuadrillas">' + (DB.cuadrillas||[]).filter(cq=>!zonaFiltro||cq.zona===zonaFiltro).map(cq=>`<option value="cq:${cq.id}">${cq.nombre} (${cq.zona}) — Líder: ${DB.users.find(u=>u.user===cq.lider)?.name||cq.lider}</option>`).join('') + '</optgroup>' : ''}
+      ${(DB.cuadrillas||[]).filter(cq=>!zonasActivas||(cq.zonas||[cq.zona]).some(z=>zonasActivas.includes(z))).length > 0 ? '<optgroup label="Cuadrillas">' + (DB.cuadrillas||[]).filter(cq=>!zonasActivas||(cq.zonas||[cq.zona]).some(z=>zonasActivas.includes(z))).map(cq=>`<option value="cq:${cq.id}">${cq.nombre} (${(cq.zonas||[cq.zona]).join(', ')}) — Líder: ${DB.users.find(u=>u.user===cq.lider)?.name||cq.lider}</option>`).join('') + '</optgroup>' : ''}
     </select>
     <button class="btn btn-sm" style="background:var(--orange);color:#fff" onclick="asignarMasivo()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -3954,8 +4122,9 @@ function renderAveriasContent() {
   ['abiertas','asignadas','cerradas'].forEach(estado => {
     const isAbierta = estado === 'abiertas';
     const isAsignada = estado === 'asignadas';
-    const zonaFiltroRend = SESSION.role === 'gerente_zona' ? SESSION.zona : null;
-    const avBase = zonaFiltroRend ? DB.averias.filter(a => a.zona === zonaFiltroRend) : DB.averias;
+    const zonasRend = SESSION.role === 'gerente_zona' ? getZonasActivas() : null;
+    const zonaFiltroRend = zonasRend && zonasRend.length === 1 ? zonasRend[0] : null;
+    const avBase = zonasRend ? DB.averias.filter(a => zonasRend.includes(a.zona)) : DB.averias;
     let items;
     if (isAbierta) items = avBase.filter(a => a.estado_gestion === 'Abierta' && !a.asignado_a);
     else if (isAsignada) items = avBase.filter(a => a.estado_gestion === 'Abierta' && a.asignado_a);
@@ -3969,7 +4138,36 @@ function renderAveriasContent() {
     const el = document.getElementById(`av-content-${estado}`);
     if (!el) return;
     if (!items.length) { el.innerHTML = '<div class="card"><p style="color:var(--muted)">No hay averías en esta categoría con los filtros aplicados.</p></div>'; return; }
-    el.innerHTML = items.map(a => renderAveriaCard(a, SESSION.role !== 'tecnico')).join('');
+    // Agrupar por lote para separación visual entre cargas
+    const lotes = {};
+    items.forEach(a => {
+      const k = a.lote_id || 'sin_lote';
+      if (!lotes[k]) lotes[k] = { fecha: a.fecha_carga || null, items: [] };
+      lotes[k].items.push(a);
+    });
+    const loteKeys = Object.keys(lotes);
+    let html = '';
+    if (loteKeys.length > 1) {
+      loteKeys.sort((a, b) => (lotes[b].fecha||'0').localeCompare(lotes[a].fecha||'0'));
+      loteKeys.forEach((key, idx) => {
+        const lote = lotes[key];
+        const fechaStr = lote.fecha
+          ? new Date(lote.fecha).toLocaleString('es-VE', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+          : 'Carga anterior';
+        const esNuevo = idx === 0;
+        html += `<div style="margin:${idx===0?'0':'16px'} 0 8px 0;display:flex;align-items:center;gap:10px">
+          <div style="flex:1;height:2px;background:${esNuevo?'var(--blue)':'var(--border)'}"></div>
+          <span style="font-size:11px;font-weight:700;color:${esNuevo?'var(--blue)':'var(--muted)'};white-space:nowrap;padding:3px 10px;border-radius:20px;background:${esNuevo?'#E8F0FE':'var(--bg)'}">
+            ${esNuevo?'🆕 ':''}Carga: ${fechaStr} · ${lote.items.length} averías
+          </span>
+          <div style="flex:1;height:2px;background:${esNuevo?'var(--blue)':'var(--border)'}"></div>
+        </div>`;
+        html += lote.items.map(a => renderAveriaCard(a, SESSION.role !== 'tecnico')).join('');
+      });
+    } else {
+      html = items.map(a => renderAveriaCard(a, SESSION.role !== 'tecnico')).join('');
+    }
+    el.innerHTML = html;
   });
 }
 
@@ -4253,7 +4451,7 @@ function nuevaAveria() {
             onfocus="document.getElementById('nav-zona-list').style.display='block'"
             onblur="setTimeout(()=>document.getElementById('nav-zona-list').style.display='none',200)"
             style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
-            value="${getDefaultUserZone()}" readonly onclick="this.removeAttribute('readonly');this.select()">
+            value="${ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
           <div id="nav-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
             ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaField('nav-zona','${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
           </div>
@@ -4607,46 +4805,16 @@ async function initApp() {
 
   if (window._FB_READY) {
     const splashMsg = document.getElementById('splash-msg');
-    if (splashMsg) splashMsg.textContent = 'Verificando sesión...';
-    const { auth, onAuthStateChanged, db, doc, getDoc } = window._FB;
-
-    // Usar onAuthStateChanged para detectar sesión activa (persistencia LOCAL)
-    onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Hay sesión activa — restaurar automáticamente sin pedir login
-        if (splashMsg) splashMsg.textContent = 'Restaurando sesión...';
-        try {
-          await pullFromFirestore();
-          if (splashMsg) splashMsg.textContent = '¡Listo!';
-        } catch(e) {
-          console.warn('Firestore sync error:', e);
-          if (splashMsg) splashMsg.textContent = 'Modo local';
-        }
-        // Buscar perfil del usuario en DB
-        let userProfile = DB.users.find(u => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
-        if (!userProfile) {
-          // Intentar obtener desde Firestore
-          try {
-            const userSnap = await getDoc(doc(db, 'optinet_users', firebaseUser.uid));
-            if (userSnap.exists()) {
-              userProfile = userSnap.data();
-            }
-          } catch(e) { console.warn('Error obteniendo perfil:', e); }
-        }
-        if (userProfile) {
-          completarLogin(userProfile);
-        } else {
-          // No se encontró perfil, mostrar login
-          showLoginScreen();
-        }
-      } else {
-        // No hay sesión activa — mostrar pantalla de login
-        try {
-          await pullFromFirestore();
-        } catch(e) { console.warn('Firestore sync error:', e); }
-        showLoginScreen();
-      }
-    });
+    if (splashMsg) splashMsg.textContent = 'Sincronizando datos...';
+    try {
+      // Intentar sincronizar con Firestore
+      await pullFromFirestore();
+      if (splashMsg) splashMsg.textContent = '¡Listo!';
+    } catch(e) {
+      console.warn('Error al sincronizar con Firestore:', e);
+      if (splashMsg) splashMsg.textContent = 'Modo local';
+    }
+    showLoginScreen();
   } else {
     // Esperar a que Firebase esté listo (máximo 5 segundos)
     let waited = 0;
@@ -4676,59 +4844,13 @@ initApp();
 </script>
 
 <script>
-// PWA Service Worker registration con detección automática de actualizaciones
+// PWA Service Worker registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js')
-      .then(reg => {
-        console.log('[App] SW registrado, versión activa.');
-
-        // Detectar cuando hay una nueva versión esperando activarse
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Hay una nueva versión lista — mostrar notificación al usuario
-              mostrarNotificacionActualizacion();
-            }
-          });
-        });
-
-        // Verificar actualizaciones cada vez que el usuario vuelve a la app
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            reg.update().catch(() => {});
-          }
-        });
-      })
-      .catch(err => console.log('[App] SW no disponible:', err));
-
-    // Escuchar mensajes del SW (nueva versión activada)
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'SW_UPDATED') {
-        console.log('[App] Nueva versión activa:', event.data.version);
-        // Recargar silenciosamente para aplicar la nueva versión
-        window.location.reload();
-      }
-    });
+      .then(reg => console.log('SW registered'))
+      .catch(err => console.log('SW not available:', err));
   });
-}
-
-// Mostrar banner de actualización disponible
-function mostrarNotificacionActualizacion() {
-  // Evitar mostrar múltiples banners
-  if (document.getElementById('update-banner')) return;
-  const banner = document.createElement('div');
-  banner.id = 'update-banner';
-  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#0033A0;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:99999;font-size:14px;box-shadow:0 -2px 12px rgba(0,0,0,.3)';
-  banner.innerHTML = `
-    <span>🔄 Nueva versión de Optinet disponible</span>
-    <div style="display:flex;gap:10px">
-      <button onclick="this.closest('#update-banner').remove()" style="background:transparent;color:#aac;border:1px solid #aac;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Después</button>
-      <button onclick="window.location.reload()" style="background:#00A9E0;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Actualizar ahora</button>
-    </div>`;
-  document.body.appendChild(banner);
 }
 
 // PWA install prompt
