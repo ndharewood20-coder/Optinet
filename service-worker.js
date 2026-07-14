@@ -1,6 +1,6 @@
 // OPTINET — Service Worker
 // Actualiza CACHE_VERSION antes de cada deploy para invalidar el caché
-const CACHE_VERSION = '20260713000000';
+const CACHE_VERSION = '20260714000000';
 const CACHE_NAME = 'optinet-' + CACHE_VERSION;
 
 // Archivos a cachear para funcionamiento offline
