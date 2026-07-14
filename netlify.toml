@@ -16,4 +16,9 @@
   publish = "dist"
 
 [build.environment]
-  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+  # Firebase web client config values (apiKey, authDomain, projectId, etc.) are
+  # public by design — they are shipped to the browser and are not secrets.
+  # Access is protected by Firebase Security Rules, not by hiding these values.
+  # They must appear in the built dist/index.html, so exclude them from Netlify's
+  # secrets scanner to avoid false positives.
+  SECRETS_SCAN_OMIT_KEYS = "FIREBASE_API_KEY,FIREBASE_AUTH_DOMAIN,FIREBASE_PROJECT_ID,FIREBASE_STORAGE_BUCKET,FIREBASE_MESSAGING_SENDER_ID,FIREBASE_APP_ID"
