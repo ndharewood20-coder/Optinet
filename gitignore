@@ -1,0 +1,9 @@
+# Archivo de configuración de Firebase con claves reales — generado en build
+firebase-config.js
+
+# Variables de entorno locales
+.env
+.env.local
+
+# Carpeta de build
+dist/
