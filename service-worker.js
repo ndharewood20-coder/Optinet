@@ -1,6 +1,6 @@
 // OPTINET — Service Worker
 // Actualiza CACHE_VERSION antes de cada deploy para invalidar el caché
-const CACHE_VERSION = '20260714000000';
+const CACHE_VERSION = '20260720000000';
 const CACHE_NAME = 'optinet-' + CACHE_VERSION;
 
 // Archivos a cachear para funcionamiento offline
@@ -16,7 +16,8 @@ self.addEventListener('install', event => {
   console.log('[SW] Instalando versión:', CACHE_VERSION);
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
+      // 'reload' fuerza a ignorar la caché HTTP del navegador al precachear
+      .then(cache => cache.addAll(ASSETS.map(url => new Request(url, { cache: 'reload' }))))
       .catch(err => console.warn('[SW] Error al cachear assets:', err))
   );
   self.skipWaiting();
@@ -56,9 +57,13 @@ self.addEventListener('fetch', event => {
 
   if (isExternal) return;
 
-  // Archivos locales: Network-First con caché de respaldo offline
+  // Archivos locales: Network-First REAL (sin caché HTTP intermedia) con
+  // respaldo offline. 'no-store' obliga a ignorar la caché del navegador,
+  // que era lo que hacía que "Network-First" a veces devolviera una copia vieja.
+  const networkRequest = new Request(event.request, { cache: 'no-store' });
+
   event.respondWith(
-    fetch(event.request)
+    fetch(networkRequest)
       .then(response => {
         if (response && response.status === 200) {
           const clone = response.clone();
