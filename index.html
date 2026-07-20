@@ -824,8 +824,14 @@ tbody tr:last-child td { border-bottom: none; }
 (function() {
   var diagLines = [];
   var diagShown = false;
+  function yaEntroALaApp() {
+    // Una vez que el usuario ya está dentro (app-shell visible), un error
+    // suelto no debe tumbar toda la pantalla — solo durante el arranque.
+    var appShell = document.getElementById('app-shell');
+    return appShell && !appShell.classList.contains('hidden');
+  }
   function showDiag() {
-    if (diagShown) return;
+    if (diagShown || yaEntroALaApp()) return;
     diagShown = true;
     var splash = document.getElementById('splash-screen');
     if (splash) splash.style.display = 'none';
@@ -837,20 +843,20 @@ tbody tr:last-child td { border-bottom: none; }
     if (banner) banner.style.display = 'block';
   }
   window.addEventListener('error', function(e) {
+    if (yaEntroALaApp()) { console.error('[OPTINET] Error capturado (no bloqueante):', e.message, e.filename, e.lineno); return; }
     diagLines.push('Error JS: ' + (e.message || 'desconocido') + '\nArchivo: ' + (e.filename || '?') + ' línea ' + (e.lineno || '?'));
     showDiag();
   });
   window.addEventListener('unhandledrejection', function(e) {
+    if (yaEntroALaApp()) { console.error('[OPTINET] Promesa rechazada (no bloqueante):', e.reason); return; }
     diagLines.push('Promesa rechazada: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
     showDiag();
   });
   // Si nada terminó de cargar en 12s, mostrar diagnóstico igual (red de seguridad extra)
   setTimeout(function() {
     var login = document.getElementById('login-screen');
-    var appShell = document.getElementById('app-shell');
     var loginVisible = login && !login.classList.contains('hidden');
-    var appVisible = appShell && !appShell.classList.contains('hidden');
-    if (!loginVisible && !appVisible) showDiag();
+    if (!loginVisible && !yaEntroALaApp()) showDiag();
   }, 12000);
 })();
 </script>
@@ -4904,12 +4910,21 @@ function showLoginScreen() {
   hideSplash();
 }
 
+function esAppInstalada() {
+  // Detecta si se está ejecutando como PWA instalada (no una pestaña de navegador normal)
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true
+      || document.referrer.includes('android-app://');
+  } catch(e) { return false; }
+}
+
 async function initApp() {
   loadDB();
 
-  // Sesión persistente offline: si el usuario ya inició sesión antes,
-  // entrar directo sin esperar a Firebase (funciona sin internet)
-  const sesionGuardada = restaurarSesionLocal();
+  // Sesión persistente offline: SOLO para la app instalada (PWA).
+  // En navegador web normal se mantiene el flujo original (login siempre).
+  const sesionGuardada = esAppInstalada() ? restaurarSesionLocal() : null;
   if (sesionGuardada) {
     hideSplash();
     completarLogin(sesionGuardada);
