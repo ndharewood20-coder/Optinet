@@ -1315,8 +1315,41 @@ function showLoginError(msg) {
   setTimeout(() => { if (errEl) errEl.style.display = 'none'; }, 4000);
 }
 
+/* ============================================================
+   SESIÓN PERSISTENTE OFFLINE
+   Guarda el perfil (sin contraseña) localmente para que el
+   usuario no tenga que volver a autenticar contra Firebase
+   cada vez que reabre la app sin señal.
+   ============================================================ */
+const SESSION_STORAGE_KEY = 'optinet_session_v1';
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
+
+function guardarSesionLocal(profile) {
+  try {
+    // Nunca guardar la contraseña en la sesión persistida
+    const { pass, ...safeProfile } = profile;
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ profile: safeProfile, ts: Date.now() }));
+  } catch(e) { console.warn('No se pudo guardar sesión local:', e); }
+}
+
+function restaurarSesionLocal() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const { profile, ts } = JSON.parse(raw);
+    if (!profile || !ts) return null;
+    if (Date.now() - ts > SESSION_MAX_AGE_MS) { localStorage.removeItem(SESSION_STORAGE_KEY); return null; }
+    return profile;
+  } catch(e) { return null; }
+}
+
+function limpiarSesionLocal() {
+  try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch(e) {}
+}
+
 function completarLogin(found) {
   SESSION = found;
+  guardarSesionLocal(found);
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
   document.getElementById('header-name').textContent = found.name;
@@ -1347,6 +1380,7 @@ async function doLogout() {
   if (window._FB_READY && window._FB.auth.currentUser) {
     try { await window._FB.signOut(window._FB.auth); } catch(e) {}
   }
+  limpiarSesionLocal();
   SESSION = null;
   location.reload();
 }
@@ -1378,6 +1412,7 @@ const NAV_GERENTE_ZONA = [
   { id: 'averias-admin', label: 'Averías', icon: iconAlert(), section: 'Gestión', badge: () => { const zz=getZonasActivas(); return DB.averias.filter(a=>a.estado_gestion==='Abierta'&&zz.includes(a.zona)).length; } },
   { id: 'historial', label: 'Historial', icon: iconHistory(), section: 'Gestión' },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' },
+  { id: 'usuarios', label: 'Usuarios', icon: iconUsers(), section: 'Administración' },
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
 ];
 
@@ -2230,12 +2265,16 @@ function renderUsuarios(c) {
         <div class="form-col" style="flex:2">
           <label>Zonas Adicionales <span style="font-size:11px;color:var(--muted)">(opcional — para cuadrillas que cubren varias zonas)</span></label>
           <div id="cq-zonas-extra-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:6px;padding:4px 0"></div>
-          <div style="display:flex;gap:8px">
-            <select id="cq-zona-extra-sel" style="flex:1;padding:7px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px">
-              <option value="">— Agregar zona adicional —</option>
-              ${ZONES.map(z=>`<option value="${z}">${z}</option>`).join('')}
-            </select>
-            <button type="button" class="btn btn-outline btn-sm" onclick="agregarZonaCQ()">+ Agregar</button>
+          <div style="position:relative">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:11px;pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="cq-zona-extra-search" placeholder="Buscar zona para agregar..." autocomplete="off"
+              oninput="filtrarZonaCQOpciones(this.value)"
+              onfocus="document.getElementById('cq-zona-extra-opciones').style.display='block'"
+              onblur="setTimeout(()=>document.getElementById('cq-zona-extra-opciones').style.display='none',200)"
+              style="width:100%;padding:8px 10px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;box-sizing:border-box">
+            <div id="cq-zona-extra-opciones" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:180px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
+              ${ZONES.map(z=>`<div class="zona-cq-opt" data-zona="${z.toLowerCase()}" onclick="agregarZonaCQ('${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
+            </div>
           </div>
         </div>
       </div>
@@ -2435,13 +2474,20 @@ function guardarEdicionCuadrilla(id) {
 // Zonas extra temporales para el formulario de nueva cuadrilla
 let _cqZonasExtra = [];
 
-function agregarZonaCQ() {
-  const sel = document.getElementById('cq-zona-extra-sel');
-  const zona = sel?.value;
+function agregarZonaCQ(zonaDirecta) {
+  const zona = zonaDirecta || document.getElementById('cq-zona-extra-sel')?.value;
   if (!zona) return;
   if (!_cqZonasExtra.includes(zona)) _cqZonasExtra.push(zona);
-  sel.value = '';
+  const search = document.getElementById('cq-zona-extra-search');
+  if (search) search.value = '';
   renderChipsCQ();
+}
+
+function filtrarZonaCQOpciones(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#cq-zona-extra-opciones .zona-cq-opt').forEach(el => {
+    el.style.display = (!q || el.dataset.zona.includes(q)) ? '' : 'none';
+  });
 }
 
 function quitarZonaCQ(zona) {
@@ -3902,6 +3948,7 @@ ${resumen}${extra}`);
 function abrirGestorZonas() {
   const zonaPrincipal = SESSION.zona;
   const extrasActuales = SESSION.zonas_extra || [];
+  const disponibles = ZONES.filter(z => z !== zonaPrincipal && !extrasActuales.includes(z));
   showModal('Gestionar Mis Zonas', `
     <div style="margin-bottom:14px">
       <div style="font-size:13px;color:var(--muted);margin-bottom:10px">
@@ -3918,20 +3965,30 @@ function abrirGestorZonas() {
               </span>`).join('')}
       </div>
       <div style="font-weight:700;font-size:13px;margin-bottom:6px">Agregar zona:</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select id="nueva-zona-extra" style="flex:1;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px">
-          <option value="">— Seleccionar zona —</option>
-          ${ZONES.filter(z => z !== zonaPrincipal && !extrasActuales.includes(z)).map(z => `<option value="${z}">${z}</option>`).join('')}
-        </select>
-        <button class="btn btn-blue btn-sm" onclick="agregarZonaExtra()">+ Agregar</button>
+      <div style="position:relative">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:11px;pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="zona-extra-search" placeholder="Buscar zona..." autocomplete="off"
+          oninput="filtrarZonaExtraOpciones(this.value)"
+          style="width:100%;padding:8px 10px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;margin-bottom:8px;box-sizing:border-box">
+      </div>
+      <div id="zona-extra-opciones" style="max-height:180px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--radius-sm)">
+        ${disponibles.length === 0
+          ? '<div style="padding:10px;font-size:12px;color:var(--muted)">Ya tienes todas las zonas agregadas</div>'
+          : disponibles.map(z => `<div class="zona-extra-opt" data-zona="${z.toLowerCase()}" onclick="agregarZonaExtra('${z}')" style="padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--bg-hover,#F0F6FA)'" onmouseout="this.style.background=''">${z}</div>`).join('')}
       </div>
     </div>
   `, `<button class="btn btn-outline" onclick="closeModal()">Cerrar</button>`);
 }
 
-function agregarZonaExtra() {
-  const sel = document.getElementById('nueva-zona-extra');
-  const zona = sel?.value;
+function filtrarZonaExtraOpciones(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#zona-extra-opciones .zona-extra-opt').forEach(el => {
+    el.style.display = (!q || el.dataset.zona.includes(q)) ? '' : 'none';
+  });
+}
+
+function agregarZonaExtra(zonaDirecta) {
+  const zona = zonaDirecta || document.getElementById('nueva-zona-extra')?.value;
   if (!zona) return;
   const extras = [...(SESSION.zonas_extra || [])];
   if (!extras.includes(zona)) extras.push(zona);
@@ -4848,6 +4905,32 @@ function showLoginScreen() {
 async function initApp() {
   loadDB();
 
+  // Sesión persistente offline: si el usuario ya inició sesión antes,
+  // entrar directo sin esperar a Firebase (funciona sin internet)
+  const sesionGuardada = restaurarSesionLocal();
+  if (sesionGuardada) {
+    hideSplash();
+    completarLogin(sesionGuardada);
+    // Sincronizar en segundo plano si hay internet, sin bloquear la interfaz
+    (async () => {
+      await new Promise(resolve => {
+        if (window._FB_READY) return resolve();
+        document.addEventListener('firebase-ready', resolve, { once: true });
+        setTimeout(resolve, 5000);
+      });
+      if (window._FB_READY) {
+        try {
+          await Promise.race([pullFromFirestore(), new Promise(r => setTimeout(r, 4000))]);
+          if (SESSION && window._currentView) renderView(window._currentView);
+          const syncInd = document.getElementById('sync-indicator');
+          if (syncInd) { syncInd.title = 'Sincronizado con la nube'; syncInd.style.background = 'var(--green)'; }
+        } catch(e) { console.warn('Sync en segundo plano omitida:', e); }
+      }
+    })();
+    return;
+  }
+
+  // Sin sesión guardada: flujo normal de splash + login
   // Red de seguridad: mostrar login en 8s pase lo que pase
   const safetyTimer = setTimeout(showLoginScreen, 8000);
 
