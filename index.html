@@ -814,6 +814,47 @@ tbody tr:last-child td { border-bottom: none; }
 </head>
 <body>
 
+<!-- ========== DIAGNÓSTICO VISUAL (sin consola) ========== -->
+<div id="diag-banner" style="display:none;position:fixed;inset:0;z-index:99999;background:#1a1a1a;color:#fff;padding:20px;font-family:monospace;font-size:13px;overflow:auto;white-space:pre-wrap">
+  <div style="font-weight:800;font-size:16px;color:#ff6b6b;margin-bottom:12px">⚠️ OPTINET no pudo cargar</div>
+  <div id="diag-text" style="line-height:1.5"></div>
+  <button onclick="location.reload()" style="margin-top:20px;padding:10px 18px;background:#00A9E0;color:#fff;border:none;border-radius:6px;font-size:14px">Reintentar</button>
+</div>
+<script>
+(function() {
+  var diagLines = [];
+  var diagShown = false;
+  function showDiag() {
+    if (diagShown) return;
+    diagShown = true;
+    var splash = document.getElementById('splash-screen');
+    if (splash) splash.style.display = 'none';
+    var login = document.getElementById('login-screen');
+    if (login) login.classList.add('hidden');
+    var banner = document.getElementById('diag-banner');
+    var text = document.getElementById('diag-text');
+    if (text) text.textContent = diagLines.length ? diagLines.join('\n\n') : 'No se detectó un error específico, pero la carga tardó demasiado (posible falla de red o de firebase-config.js).';
+    if (banner) banner.style.display = 'block';
+  }
+  window.addEventListener('error', function(e) {
+    diagLines.push('Error JS: ' + (e.message || 'desconocido') + '\nArchivo: ' + (e.filename || '?') + ' línea ' + (e.lineno || '?'));
+    showDiag();
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    diagLines.push('Promesa rechazada: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+    showDiag();
+  });
+  // Si nada terminó de cargar en 12s, mostrar diagnóstico igual (red de seguridad extra)
+  setTimeout(function() {
+    var login = document.getElementById('login-screen');
+    var appShell = document.getElementById('app-shell');
+    var loginVisible = login && !login.classList.contains('hidden');
+    var appVisible = appShell && !appShell.classList.contains('hidden');
+    if (!loginVisible && !appVisible) showDiag();
+  }, 12000);
+})();
+</script>
+
 <!-- ========== SPLASH / CARGA ========== -->
 <div id="splash-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#001E5C 0%,#0033A0 50%,#00A9E0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.5s">
   <div style="text-align:center;color:#fff">
@@ -3847,13 +3888,10 @@ function autoAsignarAverias() {
   saveDB();
 
   const sinCQ = averiasDisp.length - asignadas;
-  const resumen = detalles.slice(0, 5).map(d => `• ${d.averia} (${d.zona}) → ${d.cuadrilla}`).join('
-');
-  const extra = detalles.length > 5 ? `
-... y ${detalles.length - 5} más` : '';
+  const resumen = detalles.slice(0, 5).map(d => `• ${d.averia} (${d.zona}) → ${d.cuadrilla}`).join('\n');
+  const extra = detalles.length > 5 ? `\n... y ${detalles.length - 5} más` : '';
   alert(`✅ Auto-asignación completada:
-${asignadas} averías asignadas${sinCQ > 0 ? '
-⚠️ ' + sinCQ + ' sin cuadrilla para su zona' : ''}
+${asignadas} averías asignadas${sinCQ > 0 ? '\n⚠️ ' + sinCQ + ' sin cuadrilla para su zona' : ''}
 
 Detalle (primeras 5):
 ${resumen}${extra}`);
