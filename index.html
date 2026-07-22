@@ -960,26 +960,114 @@ const ZONES = [
   'CHAGUARAMOS','CIUDAD ALIANZA','CIUDAD CARIBIA','COCHE','COLONIA TOVAR',
   'CORO','CUMANA','CUMANACOA','EL CAFETAL_II','EL CALLAO','EL GURI',
   'EL HATILLO','EL TIGRE DIGITAL','ELORZA','FCO FAJARDO III',
-  'FRANCISCO SALIAS','GUARENAS TRAPICHITO','GUATIRE','HIGUEROTE',
+  'FRANCISCO SALIAS','GUARENAS TRAPICHITO','GUASIPATI','GUATIRE','HIGUEROTE',
   'LA PASTORA','LA SABANITA','LA SALLE CPA','LA VICTORIA','LAS INDUSTRIAS',
   'LAS MERCEDES CPA','LECHERIAS','LOS CAOBOS','LOS OLIVOS','LOS TEQUES',
   'MACARACUAY','MARACAY CENTRO','MATURIN CPA','NAIGUATA','OCUMARE DEL TUY',
   'PABX-ANZOATEGUI','PARAGUAIPOA','PIRINEOS','PUERTO AYACUCHO II',
   'PURTO ORDAZ','REGISTRO DE CENTRAL NO EXISTE','RICARDO ZULOAGA',
   'SAN CARLOS','SAN CRISTOBAL CENTRO','SAN FELIPE','SAN FRANCISCO',
-  'SAN MIGUEL','SAN RAFAEL-PORLAMAR','SN FERNADO DE APURE','SN J LOS MORROS',
-  'SN.RAF.DEL MOJAN','TUCUPIDO','TUCUPITA','UNARE','UPATA','URBINA','VALERA'
+  'SAN MIGUEL','SAN RAFAEL-PORLAMAR','SANTA ELENA DE UAIREN','SN FERNADO DE APURE',
+  'SN J LOS MORROS','SN.RAF.DEL MOJAN','TUCUPIDO','TUCUPITA','TUMEREMO',
+  'UNARE','UPATA','URBINA','VALERA'
 ];
 
-// Función para detectar y agregar zonas nuevas desde las averías cargadas
+// ── Estados de Venezuela (23 estados + Distrito Capital) y sus centrales ────
+const ESTADOS = ['AMAZONAS','ANZOATEGUI','APURE','ARAGUA','BARINAS','BOLIVAR','CARABOBO','COJEDES','DELTA AMACURO','DISTRITO CAPITAL','FALCON','GUARICO','LA GUAIRA','LARA','MERIDA','MIRANDA','MONAGAS','NUEVA ESPARTA','PORTUGUESA','SUCRE','TACHIRA','TRUJILLO','YARACUY','ZULIA'];
+
+let ESTADO_CENTRALES = {
+  'AMAZONAS': ['PUERTO AYACUCHO II'],
+  'ANZOATEGUI': ['BARCELONA DIGITAL','EL TIGRE DIGITAL','LECHERIAS','PABX-ANZOATEGUI'],
+  'APURE': ['ELORZA','SN FERNADO DE APURE'],
+  'ARAGUA': ['CAGUA','COLONIA TOVAR','LA VICTORIA','MARACAY CENTRO'],
+  'BARINAS': ['ALTO BARINAS'],
+  'BOLIVAR': ['ALTAVISTA','EL CALLAO','EL GURI','GUASIPATI','LA SABANITA','PURTO ORDAZ','SANTA ELENA DE UAIREN','TUMEREMO','UNARE','UPATA'],
+  'CARABOBO': ['CIUDAD ALIANZA'],
+  'COJEDES': ['SAN CARLOS'],
+  'DELTA AMACURO': ['TUCUPITA'],
+  'DISTRITO CAPITAL': ['CARACAS CPA','CARICUAO_II','CENTRO NACIONAL','CHAGUARAMOS','COCHE','FCO FAJARDO III','LA PASTORA','LA SALLE CPA','LOS CAOBOS','RICARDO ZULOAGA'],
+  'FALCON': ['CORO'],
+  'GUARICO': ['SN J LOS MORROS','TUCUPIDO','900 AVANZADO'],
+  'LA GUAIRA': ['CAMURI GRANDE','CIUDAD CARIBIA','NAIGUATA'],
+  'LARA': ['BTO.SANTA ISABEL','REGISTRO DE CENTRAL NO EXISTE'],
+  'MERIDA': [],
+  'MIRANDA': ['BOLEITA','CHACAO','EL CAFETAL_II','EL HATILLO','FRANCISCO SALIAS','GUARENAS TRAPICHITO','GUATIRE','HIGUEROTE','LAS MERCEDES CPA','LOS TEQUES','MACARACUAY','OCUMARE DEL TUY','URBINA'],
+  'MONAGAS': ['MATURIN CPA'],
+  'NUEVA ESPARTA': ['SAN RAFAEL-PORLAMAR'],
+  'PORTUGUESA': ['ACARIGUA'],
+  'SUCRE': ['CUMANA','CUMANACOA'],
+  'TACHIRA': ['PIRINEOS','SAN CRISTOBAL CENTRO'],
+  'TRUJILLO': ['BETIJOQUE','VALERA'],
+  'YARACUY': ['SAN FELIPE'],
+  'ZULIA': ['BELLA VISTA CPA','LAS INDUSTRIAS','LOS OLIVOS','PARAGUAIPOA','SAN FRANCISCO','SAN MIGUEL','SN.RAF.DEL MOJAN']
+};
+
+// Normaliza variantes de nombres de estado que llegan de los Excel
+function normalizarEstado(nombre) {
+  if (!nombre) return '';
+  const n = String(nombre).trim().toUpperCase();
+  if (n === 'BOLIVARIANO MIRANDA') return 'MIRANDA';
+  return n;
+}
+
+// Ordena ZONES alfabéticamente pero siempre deja "900 AVANZADO" de último
+function reordenarZonas() {
+  ZONES.sort();
+  const idx = ZONES.indexOf('900 AVANZADO');
+  if (idx !== -1) { ZONES.splice(idx, 1); ZONES.push('900 AVANZADO'); }
+  Object.values(ESTADO_CENTRALES).forEach(arr => {
+    arr.sort();
+    const i = arr.indexOf('900 AVANZADO');
+    if (i !== -1) { arr.splice(i, 1); arr.push('900 AVANZADO'); }
+  });
+}
+reordenarZonas();
+
+// Registra una central nueva (detectada al cargar un Excel) tanto en la lista
+// plana de zonas como bajo su estado correspondiente, y la persiste en DB
+// para que no se pierda al recargar la página.
+function registrarCentralNueva(central, estado) {
+  if (!central) return false;
+  central = String(central).trim().toUpperCase();
+  let esNueva = false;
+  if (!ZONES.includes(central)) { ZONES.push(central); esNueva = true; }
+
+  let est = normalizarEstado(estado);
+  if (!est || !ESTADOS.includes(est)) est = 'SIN CLASIFICAR';
+  if (!ESTADO_CENTRALES[est]) ESTADO_CENTRALES[est] = [];
+  if (!ESTADO_CENTRALES[est].includes(central)) { ESTADO_CENTRALES[est].push(central); esNueva = true; }
+
+  if (esNueva) {
+    if (!DB.zonas_extra_detectadas) DB.zonas_extra_detectadas = [];
+    if (!DB.zonas_extra_detectadas.includes(central)) DB.zonas_extra_detectadas.push(central);
+    if (!DB.estado_centrales_extra) DB.estado_centrales_extra = {};
+    if (!DB.estado_centrales_extra[est]) DB.estado_centrales_extra[est] = [];
+    if (!DB.estado_centrales_extra[est].includes(central)) DB.estado_centrales_extra[est].push(central);
+  }
+  return esNueva;
+}
+
+// Aplica a ZONES/ESTADO_CENTRALES las centrales nuevas que ya se habían
+// detectado y guardado en sesiones anteriores (localStorage / Firestore)
+function aplicarZonasExtraGuardadas() {
+  (DB.zonas_extra_detectadas || []).forEach(z => { if (!ZONES.includes(z)) ZONES.push(z); });
+  Object.entries(DB.estado_centrales_extra || {}).forEach(([estado, centrales]) => {
+    if (!ESTADO_CENTRALES[estado]) ESTADO_CENTRALES[estado] = [];
+    centrales.forEach(c => { if (!ESTADO_CENTRALES[estado].includes(c)) ESTADO_CENTRALES[estado].push(c); });
+  });
+  reordenarZonas();
+}
+
+// Mantenido por compatibilidad: sincroniza ZONES a partir de las averías ya
+// cargadas (usa 'SIN CLASIFICAR' porque no siempre se conoce el estado aquí)
 function syncZonesFromAverias() {
   if (!DB.averias || !DB.averias.length) return;
   const zonasEnAverias = [...new Set(DB.averias.map(a => a.zona).filter(Boolean).map(z => z.trim().toUpperCase()))];
   let added = 0;
   zonasEnAverias.forEach(z => {
-    if (!ZONES.includes(z)) { ZONES.push(z); added++; }
+    if (registrarCentralNueva(z, null)) added++;
   });
-  if (added > 0) { ZONES.sort(); console.log(`Zonas nuevas detectadas y agregadas: ${added}`); }
+  if (added > 0) { reordenarZonas(); console.log(`Zonas nuevas detectadas y agregadas: ${added}`); }
 }
 
 const FAULT_CATEGORIES = {
@@ -1063,7 +1151,9 @@ function getDefaultDB() {
     ordenes: [], // Sin datos de muestra
     historial: [],
     odn_extra: [],
-    cuadrillas: []
+    cuadrillas: [],
+    zonas_extra_detectadas: [],
+    estado_centrales_extra: {}
   };
 }
 
@@ -1115,6 +1205,8 @@ function loadDB() {
       if (!DB.historial) DB.historial = [];
       if (!DB.odn_extra) DB.odn_extra = [];
       if (!DB.cuadrillas) DB.cuadrillas = [];
+      if (!DB.zonas_extra_detectadas) DB.zonas_extra_detectadas = [];
+      if (!DB.estado_centrales_extra) DB.estado_centrales_extra = {};
       DB.users = DB.users.map(u => u.role === 'admin' ? {...u, role: 'gerente_general'} : u);
       if (!DB.users.find(u => u.role === 'gerente_general')) {
         DB.users.unshift({user:'gerente', pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas', cuadrilla:'', email:'gerente@optinet.ve'});
@@ -1124,6 +1216,7 @@ function loadDB() {
   } else {
     DB = getDefaultDB();
   }
+  aplicarZonasExtraGuardadas();
   localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
   // Iniciar sincronización Firebase si está disponible
   if (window._FB_READY) {
@@ -1154,6 +1247,8 @@ async function pushToFirestore() {
     odn_extra: DB.odn_extra || [],
     cuadrillas: DB.cuadrillas || [],
     users: DB.users || [],
+    zonas_extra_detectadas: DB.zonas_extra_detectadas || [],
+    estado_centrales_extra: DB.estado_centrales_extra || {},
     updated_at: new Date().toISOString(),
     updated_by: uid
   });
@@ -1171,6 +1266,9 @@ async function pullFromFirestore() {
       if (data.odn_extra) DB.odn_extra = data.odn_extra;
       if (data.cuadrillas) DB.cuadrillas = data.cuadrillas;
       if (data.users && data.users.length > 0) DB.users = data.users;
+      if (data.zonas_extra_detectadas) DB.zonas_extra_detectadas = data.zonas_extra_detectadas;
+      if (data.estado_centrales_extra) DB.estado_centrales_extra = data.estado_centrales_extra;
+      aplicarZonasExtraGuardadas();
       DB.averias = DB.averias.map(a => ({...a, estado_gestion: a.estado_gestion||'Abierta', asignado_a: a.asignado_a||'', ot_asignada: a.ot_asignada||''}));
       localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
       console.log('✅ Datos sincronizados desde Firestore');
@@ -1200,6 +1298,9 @@ function initFirebaseSync() {
     if (data.odn_extra) DB.odn_extra = data.odn_extra;
     if (data.cuadrillas) DB.cuadrillas = data.cuadrillas;
     if (data.users && data.users.length > 0) DB.users = data.users;
+    if (data.zonas_extra_detectadas) DB.zonas_extra_detectadas = data.zonas_extra_detectadas;
+    if (data.estado_centrales_extra) DB.estado_centrales_extra = data.estado_centrales_extra;
+    aplicarZonasExtraGuardadas();
     DB.averias = DB.averias.map(a => ({...a, estado_gestion: a.estado_gestion||'Abierta', asignado_a: a.asignado_a||'', ot_asignada: a.ot_asignada||''}));
     localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
     // Refrescar la vista actual si hay sesión activa
@@ -1818,7 +1919,7 @@ function renderOrdenesAdmin(c) {
               onfocus="document.getElementById('ot-zona-list').style.display='block'"
               onblur="setTimeout(()=>{document.getElementById('ot-zona-list').style.display='none';updateOTAveriasFilter();updateOTTecFilter();},200)"
               style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
-              value="${ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
+              value="${(SESSION.zona && SESSION.zona !== 'Todas') ? SESSION.zona : ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
             <div id="ot-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
               ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaOT('${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
             </div>
@@ -2209,20 +2310,36 @@ function renderUsuarios(c) {
     </div>
     <div class="form-row">
       <div class="form-col"><label>Rol</label><select id="u-role"><option value="tecnico">Técnico</option><option value="gerente_zona">Gerente de Zona</option></select></div>
-      <div class="form-col"><label>Zona Asignada</label>
+      <div class="form-col"><label>Estado</label>
         <div style="position:relative;display:inline-block;width:100%">
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="u-zona-search" placeholder="Buscar zona..."
-            oninput="filtrarZonasList('u-zona', this.value)"
-            onfocus="document.getElementById('u-zona-list').style.display='block'"
-            onblur="setTimeout(()=>document.getElementById('u-zona-list').style.display='none',200)"
+          <input type="text" id="u-estado-search" placeholder="Buscar estado..."
+            oninput="filtrarListaGenerica('u-estado-list', this.value)"
+            onfocus="document.getElementById('u-estado-list').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('u-estado-list').style.display='none',200)"
             style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
-            value="${ZONES[0]}" readonly onclick="this.removeAttribute('readonly');this.select()">
-          <div id="u-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
-            ${ZONES.map(z=>`<div class="zona-opt" onclick="seleccionarZonaField('u-zona','${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')}
+            value="" readonly onclick="this.removeAttribute('readonly');this.select()">
+          <div id="u-estado-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
+            ${ESTADOS.map(e=>`<div class="lista-opt" data-txt="${e.toLowerCase()}" onclick="seleccionarEstadoUsuario('${e}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${e}</div>`).join('')}
           </div>
         </div>
       </div>
+      <div class="form-col"><label>Central</label>
+        <div style="position:relative;display:inline-block;width:100%">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5A6E8C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="u-zona-search" placeholder="Elige un estado primero..."
+            oninput="filtrarListaGenerica('u-zona-list', this.value)"
+            onfocus="document.getElementById('u-zona-list').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('u-zona-list').style.display='none',200)"
+            style="width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;background:#fff;color:var(--txt);cursor:pointer"
+            value="" readonly onclick="this.removeAttribute('readonly');this.select()">
+          <div id="u-zona-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
+            <div style="padding:8px 12px;font-size:12px;color:var(--muted)">Elige un estado primero</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
       <div class="form-col"><label>Cuadrilla</label><select id="u-cuadrilla">
         <option value="">— Sin cuadrilla —</option>
         ${(DB.cuadrillas||[]).map(cq=>`<option value="${cq.nombre}">${cq.nombre} (${cq.zona})</option>`).join('')}
@@ -2662,12 +2779,15 @@ function cargarAverias(input) {
       const wb = XLSX.read(e.target.result, {type:'binary'});
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
       let added = 0;
+      let nuevasCentrales = 0;
       const loteTimestamp = new Date().toISOString();
       const loteId = 'lote_' + Date.now();
       rows.forEach(row => {
         const id = String(row.id_averia || row['id_averia'] || '').trim();
         if (!id || DB.averias.find(a => a.id_averia === id)) return;
         const zona = (row['nombre central'] || row.zona || '').trim().toUpperCase();
+        const estadoGeo = normalizarEstado(row['estado geografico'] || row.estado || '');
+        if (zona && registrarCentralNueva(zona, estadoGeo)) nuevasCentrales++;
         const tp = (row.tipo_problema || '').trim().toUpperCase();
         const cat = FAULT_CATEGORIES[tp] || FAULT_CATEGORIES['NNV'];
         DB.averias.push({
@@ -2693,9 +2813,11 @@ function cargarAverias(input) {
         });
         added++;
       });
+      if (nuevasCentrales > 0) reordenarZonas();
       addHistorial('carga_datos', {tipo:'averias', count: added});
       saveDB();
-      document.getElementById('msg-av').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} averías cargadas exitosamente. Los KPIs se actualizaron.</div>`;
+      const msgCentrales = nuevasCentrales > 0 ? ` Se detectaron y agregaron ${nuevasCentrales} central(es) nueva(s) a la lista de zonas.` : '';
+      document.getElementById('msg-av').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} averías cargadas exitosamente. Los KPIs se actualizaron.${msgCentrales}</div>`;
     } catch(err) {
       document.getElementById('msg-av').innerHTML = `<div class="alert alert-err">Error al leer el archivo: ${err.message}</div>`;
     }
@@ -4161,6 +4283,40 @@ function filtrarZonasList(id, query) {
     el.style.display = (!q || text.includes(q)) ? '' : 'none';
   });
   list.style.display = 'block';
+}
+
+// Filtro genérico para listas de búsqueda con clase .lista-opt (Estado / Central en Crear Usuario)
+function filtrarListaGenerica(listId, query) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const q = query.toLowerCase().trim();
+  list.querySelectorAll('.lista-opt').forEach(el => {
+    el.style.display = (!q || (el.dataset.txt || '').includes(q)) ? '' : 'none';
+  });
+  list.style.display = 'block';
+}
+
+function seleccionarEstadoUsuario(estado) {
+  const input = document.getElementById('u-estado-search');
+  if (input) input.value = estado;
+  document.getElementById('u-estado-list').style.display = 'none';
+
+  const centrales = ESTADO_CENTRALES[estado] || [];
+  const central = document.getElementById('u-zona-search');
+  if (central) { central.value = ''; central.placeholder = 'Buscar central...'; }
+  const list = document.getElementById('u-zona-list');
+  if (list) {
+    list.innerHTML = centrales.length
+      ? centrales.map(z=>`<div class="lista-opt" data-txt="${z.toLowerCase()}" onclick="seleccionarCentralUsuario('${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')
+      : '<div style="padding:8px 12px;font-size:12px;color:var(--muted)">Sin centrales registradas en este estado todavía</div>';
+  }
+}
+
+function seleccionarCentralUsuario(central) {
+  const input = document.getElementById('u-zona-search');
+  if (input) input.value = central;
+  const list = document.getElementById('u-zona-list');
+  if (list) list.style.display = 'none';
 }
 
 function seleccionarZonaField(id, zona, onChangeFn, allLabel) {
