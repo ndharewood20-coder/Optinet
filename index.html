@@ -19,7 +19,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   // La config se inyecta en window.FIREBASE_CONFIG por firebase-config.js (generado en build)
   async function initFirebase() {
@@ -36,7 +36,7 @@
     const app = initializeApp(window.FIREBASE_CONFIG);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    window._FB = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
+    window._FB = { auth, db, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, getDocs, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp };
     window._FB_READY = true;
     document.dispatchEvent(new Event('firebase-ready'));
   }
@@ -1310,10 +1310,10 @@ async function pushToFirestore() {
   const uid = window._FB.auth.currentUser?.uid;
   if (!uid) return;
   // Guardar datos operativos globales (no por usuario, sino por organización)
+  // Red ODN NO va aquí — se guarda en su propia subcolección por lote (ver pushODNLoteToFirestore)
   await setDoc(doc(db, 'optinet', 'main_db'), {
     averias: DB.averias || [],
     ordenes: DB.ordenes || [],
-    odn_extra: DB.odn_extra || [],
     cuadrillas: DB.cuadrillas || [],
     users: DB.users || [],
     zonas_extra_detectadas: DB.zonas_extra_detectadas || [],
@@ -1337,6 +1337,42 @@ async function pushHistorialToFirestore() {
   });
 }
 
+// Red ODN: cada carga de Excel (lote) se guarda como su PROPIO documento pequeño,
+// dentro de la subcolección optinet/main_db/odn_lotes. Así, un edificio grande
+// nunca puede hacer fallar el guardado de otro, ni de los datos operativos.
+async function pushODNLoteToFirestore(loteId, estado, central, registros) {
+  const { db, doc, setDoc } = window._FB;
+  const uid = window._FB.auth.currentUser?.uid;
+  if (!uid) return;
+  await setDoc(doc(db, 'optinet', 'main_db', 'odn_lotes', loteId), {
+    estado, central, registros,
+    updated_at: new Date().toISOString(),
+    updated_by: uid
+  });
+}
+
+async function eliminarLoteODNFirestore(loteId) {
+  if (!window._FB_READY || !window._FB.auth.currentUser) return;
+  try {
+    const { db, doc, deleteDoc } = window._FB;
+    await deleteDoc(doc(db, 'optinet', 'main_db', 'odn_lotes', loteId));
+  } catch(e) { console.warn('Error eliminando lote ODN en Firestore:', e); }
+}
+
+// Trae TODOS los lotes de Red ODN de la subcolección y reconstruye DB.odn_extra
+async function pullODNLotes() {
+  const { db, collection, getDocs } = window._FB;
+  try {
+    const snap = await getDocs(collection(db, 'optinet', 'main_db', 'odn_lotes'));
+    const todos = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.registros) todos.push(...data.registros);
+    });
+    DB.odn_extra = todos;
+  } catch(e) { console.warn('Error leyendo lotes ODN de Firestore:', e); }
+}
+
 async function pullFromFirestore() {
   const { db, doc, getDoc } = window._FB;
   try {
@@ -1345,7 +1381,6 @@ async function pullFromFirestore() {
       const data = snap.data();
       if (data.averias) DB.averias = data.averias;
       if (data.ordenes) DB.ordenes = data.ordenes;
-      if (data.odn_extra) DB.odn_extra = data.odn_extra;
       if (data.cuadrillas) DB.cuadrillas = data.cuadrillas;
       if (data.users && data.users.length > 0) DB.users = data.users;
       if (data.zonas_extra_detectadas) DB.zonas_extra_detectadas = data.zonas_extra_detectadas;
@@ -1359,6 +1394,7 @@ async function pullFromFirestore() {
       const dataHist = snapHist.data();
       if (dataHist.historial) DB.historial = dataHist.historial;
     }
+    await pullODNLotes();
     localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
     console.log('✅ Datos sincronizados desde Firestore');
     return true;
@@ -1390,17 +1426,16 @@ function refrescarVistaTrasSync() {
 function initFirebaseSync() {
   if (_fbSyncEnabled) return;
   _fbSyncEnabled = true;
-  const { db, doc, onSnapshot } = window._FB;
+  const { db, doc, collection, onSnapshot } = window._FB;
   const myUid = () => window._FB.auth.currentUser?.uid;
 
-  // Escuchar cambios en tiempo real — datos operativos
+  // Escuchar cambios en tiempo real — datos operativos (sin Red ODN, ver abajo)
   const unsub = onSnapshot(doc(db, 'optinet', 'main_db'), (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
     if (data.updated_by === myUid()) return; // evitar loop con nuestro propio cambio
     if (data.averias) DB.averias = data.averias;
     if (data.ordenes) DB.ordenes = data.ordenes;
-    if (data.odn_extra) DB.odn_extra = data.odn_extra;
     if (data.cuadrillas) DB.cuadrillas = data.cuadrillas;
     if (data.users && data.users.length > 0) DB.users = data.users;
     if (data.zonas_extra_detectadas) DB.zonas_extra_detectadas = data.zonas_extra_detectadas;
@@ -1425,6 +1460,20 @@ function initFirebaseSync() {
     console.warn('Firestore historial listener error:', err);
   });
   _fbListeners.push(unsubHist);
+
+  // Escuchar cambios en tiempo real — Red ODN (subcolección de lotes, cada uno su propio documento)
+  const unsubODN = onSnapshot(collection(db, 'optinet', 'main_db', 'odn_lotes'), (snap) => {
+    const todos = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.registros) todos.push(...data.registros);
+    });
+    DB.odn_extra = todos;
+    refrescarVistaTrasSync();
+  }, (err) => {
+    console.warn('Firestore ODN listener error:', err);
+  });
+  _fbListeners.push(unsubODN);
 }
 
 /* ============================================================
@@ -2437,6 +2486,7 @@ function eliminarHistorialSeleccionados() {
       DB.averias = DB.averias.filter(a => a.lote_id !== h.data.loteId);
     } else if (h.tipo === 'carga_datos' && h.data?.tipo === 'odn' && h.data?.loteId) {
       DB.odn_extra = DB.odn_extra.filter(o => o.lote_id !== h.data.loteId);
+      eliminarLoteODNFirestore(h.data.loteId);
     } else if (h.tipo === 'ot_creada' && h.data?.ot) {
       DB.ordenes = DB.ordenes.filter(o => o.id !== h.data.ot);
     }
@@ -3241,6 +3291,7 @@ function cargarODN(input) {
       let added = 0;
       let hojasSinDatos = [];
       const loteId = 'lote_' + Date.now();
+      const registrosLote = [];
 
       // Recorrer TODAS las hojas del libro (cada hoja = una torre/edificio independiente)
       wb.SheetNames.forEach(sheetName => {
@@ -3256,13 +3307,18 @@ function cargarODN(input) {
           const rec = { ESTADO: estado, ZONA: central, TORRE: sheetName.trim(), lote_id: loteId };
           Object.entries(colMap).forEach(([k,i]) => { rec[k] = String(row[i]||'').trim(); });
           if (rec.ID_FAT && !DB.odn_extra.find(o => o.ESTADO === rec.ESTADO && o.ZONA === rec.ZONA && o.TORRE === rec.TORRE && o.ID_FAT === rec.ID_FAT && o.PUERTO_SPL2 === rec.PUERTO_SPL2)) {
-            DB.odn_extra.push(rec); added++;
+            DB.odn_extra.push(rec); registrosLote.push(rec); added++;
           }
         });
       });
 
       addHistorial('carga_datos', {tipo:'odn', count: added, loteId});
       saveDB();
+      // La Red ODN se guarda en su propio documento por lote (no en main_db), para
+      // que archivos grandes de un edificio no afecten el guardado de otros datos.
+      if (registrosLote.length) {
+        pushODNLoteToFirestore(loteId, estado, central, registrosLote).catch(e => console.warn('Firestore ODN lote sync error:', e));
+      }
       const avisoHojas = hojasSinDatos.length ? ` (${hojasSinDatos.length} hoja(s) sin formato reconocido, omitida(s): ${hojasSinDatos.join(', ')})` : '';
       document.getElementById('msg-odn').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} registros ODN cargados de ${wb.SheetNames.length} hoja(s) (torres/edificios) para ${central} (${estado}).${avisoHojas}</div>`;
     } catch(err) {
@@ -3272,7 +3328,7 @@ function cargarODN(input) {
   r.readAsBinaryString(f);
 }
 
-function vaciarDatosODN() {
+async function vaciarDatosODN() {
   if (SESSION.role !== 'gerente_general' && SESSION.role !== 'gerente_zona') {
     alert('Solo un gerente puede hacer esto.');
     return;
@@ -3280,6 +3336,9 @@ function vaciarDatosODN() {
   const cantidad = DB.odn_extra.length;
   if (!cantidad) { alert('No hay datos de Red ODN cargados.'); return; }
   if (!confirm(`Esto eliminará los ${cantidad} registro(s) de Red ODN cargados hasta ahora. No afecta averías, órdenes ni usuarios. ¿Continuar?`)) return;
+  // Borrar cada lote también en Firestore
+  const lotes = [...new Set(DB.odn_extra.map(o => o.lote_id).filter(Boolean))];
+  for (const loteId of lotes) { await eliminarLoteODNFirestore(loteId); }
   DB.odn_extra = [];
   addHistorial('carga_datos', {tipo:'odn_vaciado', count: cantidad});
   saveDB();
