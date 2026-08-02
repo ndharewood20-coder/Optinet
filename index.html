@@ -1010,8 +1010,28 @@ function normalizarEstado(nombre) {
   return n;
 }
 
-// Ordena ZONES alfabéticamente pero siempre deja "900 AVANZADO" de último
+// Busca una zona/central ya registrada sin importar mayúsculas/minúsculas
+function buscarZonaExistente(nombre) {
+  if (!nombre) return null;
+  const n = String(nombre).trim().toUpperCase();
+  return ZONES.find(z => z.toUpperCase() === n) || null;
+}
+
+// Ordena ZONES alfabéticamente pero siempre deja "900 AVANZADO" de último,
+// y quita cualquier zona que haya sido eliminada manualmente por un gerente general.
 function reordenarZonas() {
+  let eliminadas = [];
+  try { eliminadas = (DB && DB.zonas_eliminadas) || []; } catch(e) { eliminadas = []; }
+  if (eliminadas.length) {
+    for (let i = ZONES.length - 1; i >= 0; i--) {
+      if (eliminadas.includes(ZONES[i])) ZONES.splice(i, 1);
+    }
+    Object.values(ESTADO_CENTRALES).forEach(arr => {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (eliminadas.includes(arr[i])) arr.splice(i, 1);
+      }
+    });
+  }
   ZONES.sort();
   const idx = ZONES.indexOf('900 AVANZADO');
   if (idx !== -1) { ZONES.splice(idx, 1); ZONES.push('900 AVANZADO'); }
@@ -1023,12 +1043,23 @@ function reordenarZonas() {
 }
 reordenarZonas();
 
-// Registra una central nueva (detectada al cargar un Excel) tanto en la lista
-// plana de zonas como bajo su estado correspondiente, y la persiste en DB
-// para que no se pierda al recargar la página.
+// Registra una central nueva (detectada al cargar un Excel, o agregada
+// manualmente) tanto en la lista plana de zonas como bajo su estado
+// correspondiente, y la persiste en DB para que no se pierda al recargar.
+// Reconoce mayúsculas/minúsculas/combinaciones: todo se normaliza a MAYÚSCULAS
+// antes de compararse o guardarse, igual que el resto de zonas registradas.
 function registrarCentralNueva(central, estado) {
   if (!central) return false;
   central = String(central).trim().toUpperCase();
+
+  // Si un gerente general la eliminó antes, no se vuelve a agregar sola
+  if (DB.zonas_eliminadas && DB.zonas_eliminadas.includes(central)) return false;
+
+  // Si ya existe con otra combinación de mayúsculas/minúsculas, no duplicar
+  if (buscarZonaExistente(central)) {
+    central = buscarZonaExistente(central); // usar el nombre ya registrado tal cual
+  }
+
   let esNueva = false;
   if (!ZONES.includes(central)) { ZONES.push(central); esNueva = true; }
 
@@ -1056,6 +1087,42 @@ function aplicarZonasExtraGuardadas() {
     centrales.forEach(c => { if (!ESTADO_CENTRALES[estado].includes(c)) ESTADO_CENTRALES[estado].push(c); });
   });
   reordenarZonas();
+}
+
+// Elimina una zona/central del sistema. SOLO gerente_general puede hacerlo
+// (verificado también aquí, no solo en la UI, por seguridad).
+function eliminarCentralGlobal(central, estado) {
+  if (!SESSION || SESSION.role !== 'gerente_general') {
+    alert('Solo el Gerente General puede eliminar zonas.');
+    return false;
+  }
+  central = String(central).trim().toUpperCase();
+
+  const idxZ = ZONES.indexOf(central);
+  if (idxZ !== -1) ZONES.splice(idxZ, 1);
+
+  if (estado && ESTADO_CENTRALES[estado]) {
+    const idxE = ESTADO_CENTRALES[estado].indexOf(central);
+    if (idxE !== -1) ESTADO_CENTRALES[estado].splice(idxE, 1);
+  } else {
+    // Si no se sabe el estado, buscarla en todos
+    Object.values(ESTADO_CENTRALES).forEach(arr => {
+      const i = arr.indexOf(central);
+      if (i !== -1) arr.splice(i, 1);
+    });
+  }
+
+  if (!DB.zonas_eliminadas) DB.zonas_eliminadas = [];
+  if (!DB.zonas_eliminadas.includes(central)) DB.zonas_eliminadas.push(central);
+
+  // Limpiar también de las listas de "detectadas" para no reintroducirla
+  if (DB.zonas_extra_detectadas) DB.zonas_extra_detectadas = DB.zonas_extra_detectadas.filter(z => z !== central);
+  if (DB.estado_centrales_extra) {
+    Object.keys(DB.estado_centrales_extra).forEach(e => {
+      DB.estado_centrales_extra[e] = DB.estado_centrales_extra[e].filter(z => z !== central);
+    });
+  }
+  return true;
 }
 
 // Mantenido por compatibilidad: sincroniza ZONES a partir de las averías ya
@@ -1153,7 +1220,8 @@ function getDefaultDB() {
     odn_extra: [],
     cuadrillas: [],
     zonas_extra_detectadas: [],
-    estado_centrales_extra: {}
+    estado_centrales_extra: {},
+    zonas_eliminadas: []
   };
 }
 
@@ -1207,6 +1275,7 @@ function loadDB() {
       if (!DB.cuadrillas) DB.cuadrillas = [];
       if (!DB.zonas_extra_detectadas) DB.zonas_extra_detectadas = [];
       if (!DB.estado_centrales_extra) DB.estado_centrales_extra = {};
+      if (!DB.zonas_eliminadas) DB.zonas_eliminadas = [];
       DB.users = DB.users.map(u => u.role === 'admin' ? {...u, role: 'gerente_general'} : u);
       if (!DB.users.find(u => u.role === 'gerente_general')) {
         DB.users.unshift({user:'gerente', pass:'gerente123', role:'gerente_general', name:'Gerente General OPTINET', zona:'Todas', cuadrilla:'', email:'gerente@optinet.ve'});
@@ -1249,6 +1318,7 @@ async function pushToFirestore() {
     users: DB.users || [],
     zonas_extra_detectadas: DB.zonas_extra_detectadas || [],
     estado_centrales_extra: DB.estado_centrales_extra || {},
+    zonas_eliminadas: DB.zonas_eliminadas || [],
     updated_at: new Date().toISOString(),
     updated_by: uid
   });
@@ -1268,6 +1338,7 @@ async function pullFromFirestore() {
       if (data.users && data.users.length > 0) DB.users = data.users;
       if (data.zonas_extra_detectadas) DB.zonas_extra_detectadas = data.zonas_extra_detectadas;
       if (data.estado_centrales_extra) DB.estado_centrales_extra = data.estado_centrales_extra;
+      if (data.zonas_eliminadas) DB.zonas_eliminadas = data.zonas_eliminadas;
       aplicarZonasExtraGuardadas();
       DB.averias = DB.averias.map(a => ({...a, estado_gestion: a.estado_gestion||'Abierta', asignado_a: a.asignado_a||'', ot_asignada: a.ot_asignada||''}));
       localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
@@ -1300,6 +1371,7 @@ function initFirebaseSync() {
     if (data.users && data.users.length > 0) DB.users = data.users;
     if (data.zonas_extra_detectadas) DB.zonas_extra_detectadas = data.zonas_extra_detectadas;
     if (data.estado_centrales_extra) DB.estado_centrales_extra = data.estado_centrales_extra;
+    if (data.zonas_eliminadas) DB.zonas_eliminadas = data.zonas_eliminadas;
     aplicarZonasExtraGuardadas();
     DB.averias = DB.averias.map(a => ({...a, estado_gestion: a.estado_gestion||'Abierta', asignado_a: a.asignado_a||'', ot_asignada: a.ot_asignada||''}));
     localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
@@ -1505,6 +1577,7 @@ const NAV_ADMIN = [
   { id: 'ordenes', label: 'Órdenes de Trabajo', icon: iconClipboard(), section: 'Gestión' },
   { id: 'averias-admin', label: 'Averías', icon: iconAlert(), section: 'Gestión', badge: () => DB.averias.filter(a=>a.estado_gestion==='Abierta' && !a.asignado_a).length },
   { id: 'historial', label: 'Historial', icon: iconHistory(), section: 'Gestión' },
+  { id: 'zonas', label: 'Registro de Zonas', icon: iconMapPin(), section: 'Gestión' },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' },
   { id: 'usuarios', label: 'Usuarios', icon: iconUsers(), section: 'Administración' },
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
@@ -1519,6 +1592,7 @@ const NAV_GERENTE_ZONA = [
   { id: 'ordenes', label: 'Órdenes de Trabajo', icon: iconClipboard(), section: 'Gestión', badge: () => { const zz=getZonasActivas(); return DB.ordenes.filter(o=>zz.includes(o.zona)&&o.estado!=='Completada').length; } },
   { id: 'averias-admin', label: 'Averías', icon: iconAlert(), section: 'Gestión', badge: () => { const zz=getZonasActivas(); return DB.averias.filter(a=>a.estado_gestion==='Abierta'&&zz.includes(a.zona)).length; } },
   { id: 'historial', label: 'Historial', icon: iconHistory(), section: 'Gestión' },
+  { id: 'zonas', label: 'Registro de Zonas', icon: iconMapPin(), section: 'Gestión' },
   { id: 'odn', label: 'Red ODN', icon: iconNetwork(), section: 'Red' },
   { id: 'usuarios', label: 'Usuarios', icon: iconUsers(), section: 'Administración' },
   { id: 'carga', label: 'Cargar Datos', icon: iconUpload(), section: 'Administración' }
@@ -1589,6 +1663,7 @@ function iconNetwork() { return `<svg width="16" height="16" viewBox="0 0 24 24"
 function iconUsers()   { return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`; }
 function iconUpload()  { return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>`; }
 function iconHistory() { return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>`; }
+function iconMapPin()  { return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`; }
 function iconCheck()   { return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`; }
 function iconX()       { return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`; }
 function iconEye()     { return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`; }
@@ -1735,6 +1810,7 @@ function renderView(view) {
     case 'ordenes':       renderOrdenesAdmin(c); break;
     case 'averias-admin': renderAveriasAdmin(c); break;
     case 'historial':     renderHistorial(c); break;
+    case 'zonas':         renderZonas(c); break;
     case 'odn':           renderODN(c); break;
     case 'usuarios':      renderUsuarios(c); break;
     case 'carga':         renderCarga(c); break;
@@ -2246,7 +2322,7 @@ function renderHistorialContent(items) {
       case 'ot_creada':     icon='&#9998;'; desc=`OT ${h.data?.ot} creada — ${h.data?.tipo} · ${h.data?.zona}`; color='var(--blue)'; break;
       case 'ot_completada': icon='&#10003;'; desc=`OT ${h.data?.ot} completada`; color='var(--green)'; break;
       case 'averia_cerrada':icon='&#10003;'; desc=`Avería ${h.data?.id} cerrada`; color='var(--green)'; break;
-      case 'carga_datos':   icon='&#8679;'; desc=`Datos cargados: ${h.data?.tipo} (${h.data?.count} registros)`; color='var(--cyan)'; break;
+      case 'carga_datos':   icon='&#8679;'; desc = h.data?.tipo === 'zona_manual' ? 'Zona/central agregada manualmente al Registro de Zonas' : h.data?.tipo === 'zona_eliminada' ? 'Zona/central eliminada del Registro de Zonas' : `Datos cargados: ${h.data?.tipo} (${h.data?.count} registros)`; color='var(--cyan)'; break;
       case 'averia_asignada': icon='&#9654;'; desc=`Avería ${h.data?.id} asignada a ${h.data?.tecnico} (${h.data?.zona})`; color='var(--blue)'; break;
       default:              icon='&#9679;'; desc=JSON.stringify(h.data); color='var(--txt-muted)';
     }
@@ -2263,6 +2339,105 @@ function renderHistorialContent(items) {
       </div>
     </div>`;
   }).join('');
+}
+
+/* ============================================================
+   REGISTRO DE ZONAS — ver y agregar centrales por estado
+   ============================================================ */
+function renderZonas(c) {
+  const puedeEditar = SESSION.role === 'gerente_general' || SESSION.role === 'gerente_zona';
+  const totalCentrales = ZONES.length;
+  c.innerHTML = `
+  <div class="page-header">
+    <div>
+      <div class="page-title">Registro de Zonas</div>
+      <div class="page-sub">${totalCentrales} centrales registradas en ${ESTADOS.length} estados · Cualquier zona agregada aquí queda disponible en todo el portal</div>
+    </div>
+  </div>
+  ${puedeEditar ? `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Agregar Nueva Central</div></div>
+    <div class="form-row">
+      <div class="form-col"><label>Estado</label>
+        <div style="position:relative">
+          <input type="text" id="zr-estado-search" placeholder="Buscar estado..."
+            oninput="filtrarListaGenerica('zr-estado-list', this.value)"
+            onfocus="document.getElementById('zr-estado-list').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('zr-estado-list').style.display='none',200)"
+            style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;box-sizing:border-box"
+            value="" readonly onclick="this.removeAttribute('readonly');this.select()">
+          <div id="zr-estado-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
+            ${ESTADOS.map(e=>`<div class="lista-opt" data-txt="${e.toLowerCase()}" onclick="document.getElementById('zr-estado-search').value='${e}';document.getElementById('zr-estado-list').style.display='none'" style="padding:7px 12px;cursor:pointer;font-size:13px">${e}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="form-col"><label>Nombre de la Central / Zona</label>
+        <input type="text" id="zr-central-nombre" placeholder="Ej: TUMEREMO" style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;box-sizing:border-box">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-green" onclick="agregarCentralManual()">${iconPlus()} Agregar Zona</button>
+    </div>
+    <div id="zr-msg"></div>
+  </div>` : ''}
+  <div id="zr-lista">${renderZonasLista()}</div>`;
+}
+
+function renderZonasLista() {
+  const puedeEditar = SESSION.role === 'gerente_general' || SESSION.role === 'gerente_zona';
+  const puedeEliminar = SESSION.role === 'gerente_general';
+  return ESTADOS.map(estado => {
+    const centrales = ESTADO_CENTRALES[estado] || [];
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="card-header"><div class="card-title">${estado} <span style="font-weight:400;color:var(--txt-muted);font-size:12px">(${centrales.length} central${centrales.length===1?'':'es'})</span></div></div>
+      ${centrales.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${centrales.map(z => `
+          <span style="background:#E3F2FD;color:#0277BD;padding:5px 12px;border-radius:20px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
+            ${z}
+            ${puedeEliminar ? `<button onclick="confirmarEliminarZona('${z.replace(/'/g,"\\'")}','${estado}')" title="Eliminar zona" style="background:none;border:none;cursor:pointer;color:#0277BD;font-size:15px;line-height:1;padding:0">×</button>` : ''}
+          </span>`).join('')}
+      </div>` : `<p style="color:var(--txt-muted);font-size:13px;margin:0">Sin centrales registradas todavía${puedeEditar ? ' — agrega la primera arriba.' : '.'}</p>`}
+    </div>`;
+  }).join('');
+}
+
+function confirmarEliminarZona(central, estado) {
+  if (SESSION.role !== 'gerente_general') { alert('Solo el Gerente General puede eliminar zonas.'); return; }
+  if (!confirm(`¿Eliminar la zona "${central}" de ${estado}? Esta acción no se puede deshacer, y podría afectar averías/órdenes que ya la usan.`)) return;
+  eliminarCentralGlobal(central, estado);
+  addHistorial('carga_datos', {tipo:'zona_eliminada', count: 1});
+  saveDB();
+  document.getElementById('zr-lista').innerHTML = renderZonasLista();
+}
+
+async function agregarCentralManual() {
+  const estado = document.getElementById('zr-estado-search')?.value?.trim().toUpperCase();
+  const nombreInput = document.getElementById('zr-central-nombre');
+  const nombre = nombreInput?.value?.trim().toUpperCase();
+  const msg = document.getElementById('zr-msg');
+
+  if (!estado || !ESTADOS.includes(estado)) {
+    msg.innerHTML = '<div class="alert alert-err">Selecciona un estado válido de la lista.</div>';
+    return;
+  }
+  if (!nombre) {
+    msg.innerHTML = '<div class="alert alert-err">Escribe el nombre de la central/zona.</div>';
+    return;
+  }
+  if (buscarZonaExistente(nombre)) {
+    msg.innerHTML = `<div class="alert alert-err">Esa zona ya está registrada como "${buscarZonaExistente(nombre)}".</div>`;
+    return;
+  }
+
+  registrarCentralNueva(nombre, estado);
+  reordenarZonas();
+  addHistorial('carga_datos', {tipo:'zona_manual', count: 1});
+  saveDB();
+
+  nombreInput.value = '';
+  msg.innerHTML = `<div class="alert alert-ok">${iconCheck()} "${nombre}" agregada a ${estado}. Ya está disponible en Órdenes, Averías, Usuarios y Red ODN.</div>`;
+  document.getElementById('zr-lista').innerHTML = renderZonasLista();
 }
 
 function filtrarHistorial() {
@@ -2840,7 +3015,15 @@ function cargarODN(input) {
       if (headerRow < 0) { document.getElementById('msg-odn').innerHTML = '<div class="alert alert-err">No se encontró la fila de encabezados. Verifique el formato del archivo.</div>'; return; }
       const headers = rows[headerRow].map(h => String(h||'').trim());
       const dataRows = rows.slice(headerRow + 1).filter(r => r && String(r[0]||'').match(/^\d+$/));
-      const colMap = { N:0, ACRONIMO:1, IP:2, TARJETA:6, PUERTO_OLT:7, ID_FAT:30, SPLITTER_2:31, PUERTO_SPL2:32, DIRECCION:33, INMUEBLE:34, LATITUD:35, LONGITUD:36 };
+      const colMap = {
+        N:0, ACRONIMO:1, IP:2, TARJETA:6, PUERTO_OLT:7,
+        RACK:11, SUB_RACK:12, BANDEJA:13,
+        ID_CABLE_FEEDER:15, BUFFER_FEEDER:16, COLOR_FEEDER:17,
+        ID_MANGA_DIST:18, ID_CABLE_DIST:19, BUFFER_DIST:20, COLOR_DIST:21, ID_CAJA_DERIV:22,
+        SPLITTER_1:27, PUERTO_SPL1:28, ID_CABLE_DROP:29,
+        ID_FAT:30, SPLITTER_2:31, PUERTO_SPL2:32,
+        DIRECCION:33, INMUEBLE:34, LATITUD:35, LONGITUD:36, OBSERVACION:37
+      };
       let added = 0;
       dataRows.forEach(row => {
         const rec = {};
@@ -3888,6 +4071,7 @@ function verAbonado(r) {
         <div class="odn-detail-item"><label>IP OLT</label><span>${r.IP}</span></div>
         <div class="odn-detail-item"><label>Tarjeta</label><span>${r.TARJETA}</span></div>
         <div class="odn-detail-item"><label>Puerto PON</label><span>${r.PUERTO_OLT}</span></div>
+        <div class="odn-detail-item"><label>Rack / Sub-Rack</label><span>${r.RACK}${r.SUB_RACK?' / '+r.SUB_RACK:''}</span></div>
         <div class="odn-detail-item"><label>Splitter Nivel 1</label><span>${r.SPLITTER_1}</span></div>
         <div class="odn-detail-item"><label>Puerto Spl. 1</label><span>${r.PUERTO_SPL1}</span></div>
         <div class="odn-detail-item"><label>Splitter Nivel 2</label><span>${r.SPLITTER_2}</span></div>
@@ -3981,6 +4165,7 @@ function selectODNSub(r, el) {
         <div class="odn-detail-item"><label>FAT</label><span style="font-size:11px">${r.ID_FAT}</span></div>
         <div class="odn-detail-item"><label>OLT</label><span>${r.ACRONIMO}</span></div>
         <div class="odn-detail-item"><label>Tarjeta / Puerto PON</label><span>${r.TARJETA} / ${r.PUERTO_OLT}</span></div>
+        <div class="odn-detail-item"><label>Rack / Sub-Rack</label><span>${r.RACK}${r.SUB_RACK?' / '+r.SUB_RACK:''}</span></div>
         <div class="odn-detail-item"><label>Splitter 1</label><span>${r.SPLITTER_1} · Pto.${r.PUERTO_SPL1}</span></div>
         <div class="odn-detail-item"><label>Splitter 2</label><span>${r.SPLITTER_2} · Pto.${r.PUERTO_SPL2}</span></div>
         <div class="odn-detail-item"><label>Cable Drop</label><span style="font-size:11px">${r.ID_CABLE_DROP}</span></div>
@@ -3996,8 +4181,8 @@ function selectODNSub(r, el) {
 
 function exportODN() {
   const data = getFilteredODN();
-  const ws = [['FAT','Puerto','Abonado','Dirección','OLT','Tarjeta','Puerto PON','Splitter 1','Splitter 2','Cable Drop','Feeder','Manga Dist.','Coordenadas']];
-  data.forEach(r => ws.push([r.ID_FAT,r.PUERTO_SPL2,r.INMUEBLE,r.DIRECCION,r.ACRONIMO,r.TARJETA,r.PUERTO_OLT,r.SPLITTER_1,r.SPLITTER_2,r.ID_CABLE_DROP,r.ID_CABLE_FEEDER,r.ID_MANGA_DIST,`${r.LATITUD},${r.LONGITUD}`]));
+  const ws = [['FAT','Puerto','Abonado','Dirección','OLT','Tarjeta','Puerto PON','Rack','Splitter 1','Splitter 2','Cable Drop','Feeder','Manga Dist.','Cable Distribución','Caja Derivación','Coordenadas']];
+  data.forEach(r => ws.push([r.ID_FAT,r.PUERTO_SPL2,r.INMUEBLE,r.DIRECCION,r.ACRONIMO,r.TARJETA,r.PUERTO_OLT,r.RACK,r.SPLITTER_1,r.SPLITTER_2,r.ID_CABLE_DROP,r.ID_CABLE_FEEDER,r.ID_MANGA_DIST,r.ID_CABLE_DIST,r.ID_CAJA_DERIV,`${r.LATITUD},${r.LONGITUD}`]));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'ODN');
   XLSX.writeFile(wb, `ODN-GPON-${new Date().toISOString().slice(0,10)}.xlsx`);
