@@ -2330,6 +2330,7 @@ function renderHistorial(c) {
     <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--txt-muted)">
       <input type="checkbox" id="hist-select-all" onchange="toggleSeleccionarTodoHistorial(this)"> Seleccionar todo lo visible
     </label>
+    <div style="font-size:11.5px;color:var(--txt-muted);margin-top:4px">Al eliminar una carga de datos (averías, órdenes, ODN) también se borran los registros reales que trajo esa carga, no solo la línea del historial.</div>
   </div>` : ''}
   <div id="hist-content">
     ${renderHistorialContent(DB.historial)}
@@ -2378,7 +2379,39 @@ function eliminarHistorialSeleccionados() {
     return;
   }
   if (_histSeleccionados.size === 0) { alert('Selecciona al menos un registro.'); return; }
-  if (!confirm(`¿Eliminar ${_histSeleccionados.size} registro(s) del historial? Esta acción no se puede deshacer.`)) return;
+
+  const items = DB.historial.filter(h => _histSeleccionados.has(h.id));
+
+  // Calcular qué datos reales se van a borrar, para avisar con precisión
+  let nAverias = 0, nOrdenes = 0, nOdn = 0;
+  items.forEach(h => {
+    if (h.tipo === 'carga_datos' && h.data?.tipo === 'averias' && h.data?.loteId) {
+      nAverias += DB.averias.filter(a => a.lote_id === h.data.loteId).length;
+    } else if (h.tipo === 'carga_datos' && h.data?.tipo === 'odn' && h.data?.loteId) {
+      nOdn += DB.odn_extra.filter(o => o.lote_id === h.data.loteId).length;
+    } else if (h.tipo === 'ot_creada' && h.data?.ot) {
+      nOrdenes += DB.ordenes.filter(o => o.id === h.data.ot).length;
+    }
+  });
+
+  const partes = [];
+  if (nAverias) partes.push(`${nAverias} avería(s)`);
+  if (nOrdenes) partes.push(`${nOrdenes} orden(es) de trabajo`);
+  if (nOdn) partes.push(`${nOdn} registro(s) de Red ODN`);
+  const avisoDatos = partes.length ? `\n\nEsto también eliminará permanentemente: ${partes.join(', ')}.` : '';
+
+  if (!confirm(`¿Eliminar ${items.length} registro(s) del historial?${avisoDatos}\n\nEsta acción no se puede deshacer.`)) return;
+
+  items.forEach(h => {
+    if (h.tipo === 'carga_datos' && h.data?.tipo === 'averias' && h.data?.loteId) {
+      DB.averias = DB.averias.filter(a => a.lote_id !== h.data.loteId);
+    } else if (h.tipo === 'carga_datos' && h.data?.tipo === 'odn' && h.data?.loteId) {
+      DB.odn_extra = DB.odn_extra.filter(o => o.lote_id !== h.data.loteId);
+    } else if (h.tipo === 'ot_creada' && h.data?.ot) {
+      DB.ordenes = DB.ordenes.filter(o => o.id !== h.data.ot);
+    }
+  });
+
   DB.historial = DB.historial.filter(h => !_histSeleccionados.has(h.id));
   _histSeleccionados.clear();
   saveDB();
@@ -3045,10 +3078,10 @@ function renderCarga(c) {
   <div class="card">
     <div class="card-header"><div class="card-title">Opciones del Sistema</div></div>
     <div class="form-actions">
+      <button class="btn btn-outline" onclick="vaciarDatosODN()">Vaciar datos de Red ODN</button>
       <button class="btn btn-red" onclick="if(confirm('¿Borrar todos los datos y volver a la configuración inicial?')){localStorage.clear();location.reload();}">Reiniciar a Datos Demo</button>
       <button class="btn btn-outline" onclick="exportarTodo()">Exportar Todo (JSON)</button>
     </div>
-    <p style="font-size:12px;color:var(--txt-muted);margin-top:8px">Los datos de Red ODN cargados antes de las mejoras recientes (Torre, Rack, Estado, etc.) no tienen esos campos completos. Puedes eliminarlos selectivamente desde Historial si es necesario.</p>
   </div>`;
 }
 
@@ -3095,7 +3128,7 @@ function cargarAverias(input) {
         added++;
       });
       if (nuevasCentrales > 0) reordenarZonas();
-      addHistorial('carga_datos', {tipo:'averias', count: added});
+      addHistorial('carga_datos', {tipo:'averias', count: added, loteId});
       saveDB();
       const msgCentrales = nuevasCentrales > 0 ? ` Se detectaron y agregaron ${nuevasCentrales} central(es) nueva(s) a la lista de zonas.` : '';
       document.getElementById('msg-av').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} averías cargadas exitosamente. Los KPIs se actualizaron.${msgCentrales}</div>`;
@@ -3177,6 +3210,7 @@ function cargarODN(input) {
       };
       let added = 0;
       let hojasSinDatos = [];
+      const loteId = 'lote_' + Date.now();
 
       // Recorrer TODAS las hojas del libro (cada hoja = una torre/edificio independiente)
       wb.SheetNames.forEach(sheetName => {
@@ -3189,7 +3223,7 @@ function cargarODN(input) {
         const dataRows = rows.slice(headerRow + 1).filter(row => row && String(row[0]||'').match(/^\d+$/));
 
         dataRows.forEach(row => {
-          const rec = { ESTADO: estado, ZONA: central, TORRE: sheetName.trim() };
+          const rec = { ESTADO: estado, ZONA: central, TORRE: sheetName.trim(), lote_id: loteId };
           Object.entries(colMap).forEach(([k,i]) => { rec[k] = String(row[i]||'').trim(); });
           if (rec.ID_FAT && !DB.odn_extra.find(o => o.ESTADO === rec.ESTADO && o.ZONA === rec.ZONA && o.TORRE === rec.TORRE && o.ID_FAT === rec.ID_FAT && o.PUERTO_SPL2 === rec.PUERTO_SPL2)) {
             DB.odn_extra.push(rec); added++;
@@ -3197,7 +3231,7 @@ function cargarODN(input) {
         });
       });
 
-      addHistorial('carga_datos', {tipo:'odn', count: added});
+      addHistorial('carga_datos', {tipo:'odn', count: added, loteId});
       saveDB();
       const avisoHojas = hojasSinDatos.length ? ` (${hojasSinDatos.length} hoja(s) sin formato reconocido, omitida(s): ${hojasSinDatos.join(', ')})` : '';
       document.getElementById('msg-odn').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} registros ODN cargados de ${wb.SheetNames.length} hoja(s) (torres/edificios) para ${central} (${estado}).${avisoHojas}</div>`;
@@ -3206,6 +3240,21 @@ function cargarODN(input) {
     }
   };
   r.readAsBinaryString(f);
+}
+
+function vaciarDatosODN() {
+  if (SESSION.role !== 'gerente_general' && SESSION.role !== 'gerente_zona') {
+    alert('Solo un gerente puede hacer esto.');
+    return;
+  }
+  const cantidad = DB.odn_extra.length;
+  if (!cantidad) { alert('No hay datos de Red ODN cargados.'); return; }
+  if (!confirm(`Esto eliminará los ${cantidad} registro(s) de Red ODN cargados hasta ahora. No afecta averías, órdenes ni usuarios. ¿Continuar?`)) return;
+  DB.odn_extra = [];
+  addHistorial('carga_datos', {tipo:'odn_vaciado', count: cantidad});
+  saveDB();
+  alert(`Se eliminaron ${cantidad} registro(s) de Red ODN.`);
+  renderView('carga');
 }
 
 function exportarTodo() {
