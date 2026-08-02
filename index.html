@@ -1301,6 +1301,7 @@ function saveDB() {
   // Sincronizar con Firestore si está disponible y hay sesión activa
   if (window._FB_READY && window._FB.auth.currentUser) {
     pushToFirestore().catch(e => console.warn('Firestore sync error:', e));
+    pushHistorialToFirestore().catch(e => console.warn('Firestore historial sync error:', e));
   }
 }
 
@@ -1308,17 +1309,29 @@ async function pushToFirestore() {
   const { db, doc, setDoc } = window._FB;
   const uid = window._FB.auth.currentUser?.uid;
   if (!uid) return;
-  // Guardar datos globales (no por usuario, sino por organización)
+  // Guardar datos operativos globales (no por usuario, sino por organización)
   await setDoc(doc(db, 'optinet', 'main_db'), {
     averias: DB.averias || [],
     ordenes: DB.ordenes || [],
-    historial: DB.historial || [],
     odn_extra: DB.odn_extra || [],
     cuadrillas: DB.cuadrillas || [],
     users: DB.users || [],
     zonas_extra_detectadas: DB.zonas_extra_detectadas || [],
     estado_centrales_extra: DB.estado_centrales_extra || {},
     zonas_eliminadas: DB.zonas_eliminadas || [],
+    updated_at: new Date().toISOString(),
+    updated_by: uid
+  });
+}
+
+// El historial vive en su PROPIO documento para que su tamaño nunca afecte
+// la sincronización de los datos operativos (averías, órdenes, Red ODN, etc.)
+async function pushHistorialToFirestore() {
+  const { db, doc, setDoc } = window._FB;
+  const uid = window._FB.auth.currentUser?.uid;
+  if (!uid) return;
+  await setDoc(doc(db, 'optinet', 'historial_log'), {
+    historial: DB.historial || [],
     updated_at: new Date().toISOString(),
     updated_by: uid
   });
@@ -1332,7 +1345,6 @@ async function pullFromFirestore() {
       const data = snap.data();
       if (data.averias) DB.averias = data.averias;
       if (data.ordenes) DB.ordenes = data.ordenes;
-      if (data.historial) DB.historial = data.historial;
       if (data.odn_extra) DB.odn_extra = data.odn_extra;
       if (data.cuadrillas) DB.cuadrillas = data.cuadrillas;
       if (data.users && data.users.length > 0) DB.users = data.users;
@@ -1341,31 +1353,53 @@ async function pullFromFirestore() {
       if (data.zonas_eliminadas) DB.zonas_eliminadas = data.zonas_eliminadas;
       aplicarZonasExtraGuardadas();
       DB.averias = DB.averias.map(a => ({...a, estado_gestion: a.estado_gestion||'Abierta', asignado_a: a.asignado_a||'', ot_asignada: a.ot_asignada||''}));
-      localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
-      console.log('✅ Datos sincronizados desde Firestore');
-      return true;
     }
+    const snapHist = await getDoc(doc(db, 'optinet', 'historial_log'));
+    if (snapHist.exists()) {
+      const dataHist = snapHist.data();
+      if (dataHist.historial) DB.historial = dataHist.historial;
+    }
+    localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
+    console.log('✅ Datos sincronizados desde Firestore');
+    return true;
   } catch(e) {
     console.warn('Error al leer Firestore:', e);
   }
   return false;
 }
 
+function refrescarVistaTrasSync() {
+  localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
+  if (SESSION && window._currentView) {
+    destroyCharts(); // evita el error "Canvas is already in use" de Chart.js
+    renderView(window._currentView);
+    // Actualizar badges del nav
+    try {
+      document.querySelectorAll('.nav-badge').forEach(b => {
+        const navId = b.closest('[data-nav]')?.dataset?.nav;
+        if (navId) {
+          const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE_ZONA:NAV_TECNICO)].find(n=>n.id===navId);
+          if (item?.badge) b.textContent = item.badge() || '';
+        }
+      });
+    } catch(badgeErr) { console.warn('Error actualizando badges:', badgeErr); }
+    console.log('🔄 Vista actualizada por cambio en tiempo real');
+  }
+}
+
 function initFirebaseSync() {
   if (_fbSyncEnabled) return;
   _fbSyncEnabled = true;
   const { db, doc, onSnapshot } = window._FB;
-  // Escuchar cambios en tiempo real
+  const myUid = () => window._FB.auth.currentUser?.uid;
+
+  // Escuchar cambios en tiempo real — datos operativos
   const unsub = onSnapshot(doc(db, 'optinet', 'main_db'), (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
-    const myUid = window._FB.auth.currentUser?.uid;
-    // No procesar si el cambio lo hicimos nosotros (evitar loop)
-    if (data.updated_by === myUid) return;
-    // Actualizar DB local con datos de Firestore
+    if (data.updated_by === myUid()) return; // evitar loop con nuestro propio cambio
     if (data.averias) DB.averias = data.averias;
     if (data.ordenes) DB.ordenes = data.ordenes;
-    if (data.historial) DB.historial = data.historial;
     if (data.odn_extra) DB.odn_extra = data.odn_extra;
     if (data.cuadrillas) DB.cuadrillas = data.cuadrillas;
     if (data.users && data.users.length > 0) DB.users = data.users;
@@ -1374,27 +1408,23 @@ function initFirebaseSync() {
     if (data.zonas_eliminadas) DB.zonas_eliminadas = data.zonas_eliminadas;
     aplicarZonasExtraGuardadas();
     DB.averias = DB.averias.map(a => ({...a, estado_gestion: a.estado_gestion||'Abierta', asignado_a: a.asignado_a||'', ot_asignada: a.ot_asignada||''}));
-    localStorage.setItem('optinet_db_v1', JSON.stringify(DB));
-    // Refrescar la vista actual si hay sesión activa
-    if (SESSION && window._currentView) {
-      destroyCharts(); // evita el error "Canvas is already in use" de Chart.js
-      renderView(window._currentView);
-      // Actualizar badges del nav
-      try {
-        document.querySelectorAll('.nav-badge').forEach(b => {
-          const navId = b.closest('[data-nav]')?.dataset?.nav;
-          if (navId) {
-            const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE_ZONA:NAV_TECNICO)].find(n=>n.id===navId);
-            if (item?.badge) b.textContent = item.badge() || '';
-          }
-        });
-      } catch(badgeErr) { console.warn('Error actualizando badges:', badgeErr); }
-      console.log('🔄 Vista actualizada por cambio en tiempo real');
-    }
+    refrescarVistaTrasSync();
   }, (err) => {
     console.warn('Firestore listener error:', err);
   });
   _fbListeners.push(unsub);
+
+  // Escuchar cambios en tiempo real — historial (documento separado, no compite por espacio)
+  const unsubHist = onSnapshot(doc(db, 'optinet', 'historial_log'), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (data.updated_by === myUid()) return;
+    if (data.historial) DB.historial = data.historial;
+    refrescarVistaTrasSync();
+  }, (err) => {
+    console.warn('Firestore historial listener error:', err);
+  });
+  _fbListeners.push(unsubHist);
 }
 
 /* ============================================================
