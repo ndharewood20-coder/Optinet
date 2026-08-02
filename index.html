@@ -1312,7 +1312,7 @@ async function pushToFirestore() {
   await setDoc(doc(db, 'optinet', 'main_db'), {
     averias: DB.averias || [],
     ordenes: DB.ordenes || [],
-    historial: (DB.historial || []).slice(-200), // últimos 200 registros
+    historial: DB.historial || [],
     odn_extra: DB.odn_extra || [],
     cuadrillas: DB.cuadrillas || [],
     users: DB.users || [],
@@ -1380,13 +1380,15 @@ function initFirebaseSync() {
       destroyCharts(); // evita el error "Canvas is already in use" de Chart.js
       renderView(window._currentView);
       // Actualizar badges del nav
-      document.querySelectorAll('.nav-badge').forEach(b => {
-        const navId = b.closest('[data-nav]')?.dataset?.nav;
-        if (navId) {
-          const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE:NAV_TECNICO)].find(n=>n.id===navId);
-          if (item?.badge) b.textContent = item.badge() || '';
-        }
-      });
+      try {
+        document.querySelectorAll('.nav-badge').forEach(b => {
+          const navId = b.closest('[data-nav]')?.dataset?.nav;
+          if (navId) {
+            const item = [...(SESSION.role==='gerente_general'?NAV_ADMIN:SESSION.role==='gerente_zona'?NAV_GERENTE_ZONA:NAV_TECNICO)].find(n=>n.id===navId);
+            if (item?.badge) b.textContent = item.badge() || '';
+          }
+        });
+      } catch(badgeErr) { console.warn('Error actualizando badges:', badgeErr); }
       console.log('🔄 Vista actualizada por cambio en tiempo real');
     }
   }, (err) => {
@@ -2282,10 +2284,22 @@ function verOT(id) {
    HISTORIAL
    ============================================================ */
 function addHistorial(tipo, data) {
-  DB.historial.push({ tipo, data, fecha: new Date().toISOString(), user: SESSION?.user || 'sistema' });
+  DB.historial.push({ id: 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2,9), tipo, data, fecha: new Date().toISOString(), user: SESSION?.user || 'sistema' });
+}
+
+// Asegura que todo registro de historial tenga un id estable (backfill para registros antiguos)
+function asegurarIdsHistorial() {
+  let cambios = false;
+  (DB.historial || []).forEach(h => {
+    if (!h.id) { h.id = 'h_' + h.fecha + '_' + Math.random().toString(36).slice(2,9); cambios = true; }
+  });
+  if (cambios) saveDB();
 }
 
 function renderHistorial(c) {
+  asegurarIdsHistorial();
+  _histSeleccionados.clear();
+  const puedeEliminar = SESSION.role === 'gerente_general' || SESSION.role === 'gerente_zona';
   c.innerHTML = `
   <div class="page-header">
     <div>
@@ -2306,13 +2320,75 @@ function renderHistorial(c) {
     <button class="btn btn-primary btn-sm" onclick="filtrarHistorial()">Filtrar</button>
     <button class="btn btn-outline btn-sm" onclick="exportHistorial()">Exportar</button>
   </div>
+  ${puedeEliminar ? `
+  <div id="hist-bulk-bar" class="hidden" style="display:none;align-items:center;gap:12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px">
+    <span id="hist-bulk-label" style="font-size:13px;font-weight:600;color:#E65100"></span>
+    <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="eliminarHistorialSeleccionados()">🗑 Eliminar seleccionados</button>
+    <button class="btn btn-sm btn-outline" onclick="deseleccionarHistorial()">Cancelar</button>
+  </div>
+  <div style="margin-bottom:8px">
+    <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--txt-muted)">
+      <input type="checkbox" id="hist-select-all" onchange="toggleSeleccionarTodoHistorial(this)"> Seleccionar todo lo visible
+    </label>
+  </div>` : ''}
   <div id="hist-content">
     ${renderHistorialContent(DB.historial)}
   </div>`;
 }
 
+let _histSeleccionados = new Set();
+
+function toggleHistSeleccion(id, chk) {
+  if (chk.checked) _histSeleccionados.add(id); else _histSeleccionados.delete(id);
+  actualizarBarraHistorial();
+}
+
+function toggleSeleccionarTodoHistorial(chk) {
+  document.querySelectorAll('.hist-chk').forEach(cb => {
+    cb.checked = chk.checked;
+    if (chk.checked) _histSeleccionados.add(cb.dataset.id); else _histSeleccionados.delete(cb.dataset.id);
+  });
+  actualizarBarraHistorial();
+}
+
+function deseleccionarHistorial() {
+  _histSeleccionados.clear();
+  document.querySelectorAll('.hist-chk').forEach(cb => cb.checked = false);
+  const chkAll = document.getElementById('hist-select-all');
+  if (chkAll) chkAll.checked = false;
+  actualizarBarraHistorial();
+}
+
+function actualizarBarraHistorial() {
+  const bar = document.getElementById('hist-bulk-bar');
+  const lbl = document.getElementById('hist-bulk-label');
+  if (!bar) return;
+  const n = _histSeleccionados.size;
+  if (n > 0) {
+    bar.classList.remove('hidden'); bar.style.display = 'flex';
+    lbl.textContent = n + (n === 1 ? ' registro seleccionado' : ' registros seleccionados');
+  } else {
+    bar.classList.add('hidden'); bar.style.display = 'none';
+  }
+}
+
+function eliminarHistorialSeleccionados() {
+  if (SESSION.role !== 'gerente_general' && SESSION.role !== 'gerente_zona') {
+    alert('Solo un gerente puede eliminar registros del historial.');
+    return;
+  }
+  if (_histSeleccionados.size === 0) { alert('Selecciona al menos un registro.'); return; }
+  if (!confirm(`¿Eliminar ${_histSeleccionados.size} registro(s) del historial? Esta acción no se puede deshacer.`)) return;
+  DB.historial = DB.historial.filter(h => !_histSeleccionados.has(h.id));
+  _histSeleccionados.clear();
+  saveDB();
+  document.getElementById('hist-content').innerHTML = renderHistorialContent(DB.historial);
+  actualizarBarraHistorial();
+}
+
 function renderHistorialContent(items) {
   if (!items.length) return '<div class="card"><p style="color:var(--txt-muted)">No hay registros en el historial.</p></div>';
+  const puedeEliminar = SESSION.role === 'gerente_general' || SESSION.role === 'gerente_zona';
   const sorted = [...items].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
   return sorted.map(h => {
     const fecha = new Date(h.fecha).toLocaleString('es-VE');
@@ -2322,13 +2398,14 @@ function renderHistorialContent(items) {
       case 'ot_creada':     icon='&#9998;'; desc=`OT ${h.data?.ot} creada — ${h.data?.tipo} · ${h.data?.zona}`; color='var(--blue)'; break;
       case 'ot_completada': icon='&#10003;'; desc=`OT ${h.data?.ot} completada`; color='var(--green)'; break;
       case 'averia_cerrada':icon='&#10003;'; desc=`Avería ${h.data?.id} cerrada`; color='var(--green)'; break;
-      case 'carga_datos':   icon='&#8679;'; desc = h.data?.tipo === 'zona_manual' ? 'Zona/central agregada manualmente al Registro de Zonas' : h.data?.tipo === 'zona_eliminada' ? 'Zona/central eliminada del Registro de Zonas' : `Datos cargados: ${h.data?.tipo} (${h.data?.count} registros)`; color='var(--cyan)'; break;
+      case 'carga_datos':   icon='&#8679;'; desc = h.data?.tipo === 'zona_manual' ? 'Zona/central agregada manualmente al Registro de Zonas' : h.data?.tipo === 'zona_eliminada' ? 'Zona/central eliminada del Registro de Zonas' : h.data?.tipo === 'odn_vaciado' ? `Datos de Red ODN vaciados (${h.data?.count} registros) para recarga` : `Datos cargados: ${h.data?.tipo} (${h.data?.count} registros)`; color='var(--cyan)'; break;
       case 'averia_asignada': icon='&#9654;'; desc=`Avería ${h.data?.id} asignada a ${h.data?.tecnico} (${h.data?.zona})`; color='var(--blue)'; break;
       default:              icon='&#9679;'; desc=JSON.stringify(h.data); color='var(--txt-muted)';
     }
     return `<div class="card" style="padding:14px 18px;margin-bottom:10px;border-left:3px solid ${color}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px">
+          ${puedeEliminar ? `<input type="checkbox" class="hist-chk" data-id="${h.id}" onchange="toggleHistSeleccion('${h.id}', this)" style="width:16px;height:16px;cursor:pointer">` : ''}
           <span style="font-size:18px;color:${color}">${icon}</span>
           <div>
             <div style="font-size:13px;font-weight:600">${desc}</div>
@@ -2448,6 +2525,8 @@ function filtrarHistorial() {
   if (desde) items = items.filter(h => h.fecha >= desde);
   if (hasta) items = items.filter(h => h.fecha <= hasta + 'T23:59:59');
   if (tipo)  items = items.filter(h => h.tipo === tipo);
+  _histSeleccionados.clear();
+  actualizarBarraHistorial();
   document.getElementById('hist-content').innerHTML = renderHistorialContent(items);
 }
 
@@ -2929,7 +3008,33 @@ function renderCarga(c) {
   </div>
   <div class="card">
     <div class="card-header"><div class="card-title">Cargar Tabla ODN (TDC)</div></div>
-    <p style="font-size:13px;color:var(--txt-muted);margin-bottom:12px">Archivo Excel con formato TDC OPTINET (columnas: OLT, ODF, Feeder, Distribución, FAT, Abonado)</p>
+    <p style="font-size:13px;color:var(--txt-muted);margin-bottom:12px">Archivo Excel con formato TDC OPTINET (columnas: OLT, ODF, Feeder, Distribución, FAT, Abonado). Se leen todas las hojas del libro (cada hoja = una torre/edificio).</p>
+    <div class="form-row">
+      <div class="form-col"><label>Estado <span style="color:var(--red)">*</span></label>
+        <div style="position:relative">
+          <input type="text" id="odn-up-estado-search" placeholder="Buscar estado..." autocomplete="off"
+            oninput="filtrarListaGenerica('odn-up-estado-list', this.value)"
+            onfocus="document.getElementById('odn-up-estado-list').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('odn-up-estado-list').style.display='none',200)"
+            style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;box-sizing:border-box"
+            value="" readonly onclick="this.removeAttribute('readonly');this.select()">
+          <div id="odn-up-estado-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
+            ${ESTADOS.map(e=>`<div class="lista-opt" data-txt="${e.toLowerCase()}" onclick="seleccionarEstadoUploadODN('${e}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${e}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="form-col"><label>Central / Ciudad <span style="color:var(--red)">*</span></label>
+        <div style="position:relative">
+          <input type="text" id="odn-up-central-search" placeholder="Elige un estado primero..." autocomplete="off"
+            oninput="filtrarListaGenerica('odn-up-central-list', this.value)"
+            onfocus="document.getElementById('odn-up-central-list').style.display='block'"
+            onblur="setTimeout(()=>document.getElementById('odn-up-central-list').style.display='none',200)"
+            style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;box-sizing:border-box"
+            value="" readonly onclick="this.removeAttribute('readonly');this.select()">
+          <div id="odn-up-central-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+        </div>
+      </div>
+    </div>
     <label class="upload-box" for="file-odn">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5.5" y2="16.5"/><line x1="12" y1="8" x2="18.5" y2="16.5"/></svg>
       <p style="margin-top:8px;font-size:14px;color:var(--txt-muted)">Haz clic para seleccionar archivo Excel (.xlsx)</p>
@@ -2943,6 +3048,7 @@ function renderCarga(c) {
       <button class="btn btn-red" onclick="if(confirm('¿Borrar todos los datos y volver a la configuración inicial?')){localStorage.clear();location.reload();}">Reiniciar a Datos Demo</button>
       <button class="btn btn-outline" onclick="exportarTodo()">Exportar Todo (JSON)</button>
     </div>
+    <p style="font-size:12px;color:var(--txt-muted);margin-top:8px">Los datos de Red ODN cargados antes de las mejoras recientes (Torre, Rack, Estado, etc.) no tienen esos campos completos. Puedes eliminarlos selectivamente desde Historial si es necesario.</p>
   </div>`;
 }
 
@@ -3000,21 +3106,66 @@ function cargarAverias(input) {
   r.readAsBinaryString(f);
 }
 
+function seleccionarEstadoUploadODN(estado) {
+  document.getElementById('odn-up-estado-search').value = estado;
+  document.getElementById('odn-up-estado-list').style.display = 'none';
+  const centrales = ESTADO_CENTRALES[estado] || [];
+  const centralInput = document.getElementById('odn-up-central-search');
+  if (centralInput) { centralInput.value = ''; centralInput.placeholder = 'Buscar central/ciudad...'; }
+  const list = document.getElementById('odn-up-central-list');
+  if (list) {
+    list.innerHTML = centrales.length
+      ? centrales.map(z=>`<div class="lista-opt" data-txt="${z.toLowerCase()}" onclick="seleccionarCentralUploadODN('${z}')" style="padding:7px 12px;cursor:pointer;font-size:13px">${z}</div>`).join('')
+      : '<div style="padding:8px 12px;font-size:12px;color:var(--muted)">Sin centrales en este estado — agrégala primero en Registro de Zonas</div>';
+  }
+}
+
+function seleccionarCentralUploadODN(central) {
+  document.getElementById('odn-up-central-search').value = central;
+  document.getElementById('odn-up-central-list').style.display = 'none';
+}
+
+// Intenta adivinar el estado/central a partir del nombre del archivo (best-effort)
+function autoSugerirEstadoCentralODN(nombreArchivo) {
+  const estadoInput = document.getElementById('odn-up-estado-search');
+  const centralInput = document.getElementById('odn-up-central-search');
+  if ((estadoInput && estadoInput.value) || (centralInput && centralInput.value)) return; // ya hay algo elegido, no tocar
+  const limpio = nombreArchivo.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  for (const central of ZONES) {
+    const centralLimpia = central.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (centralLimpia && limpio.includes(centralLimpia)) {
+      const estado = Object.entries(ESTADO_CENTRALES).find(([est, cs]) => cs.includes(central))?.[0];
+      if (estado) { seleccionarEstadoUploadODN(estado); seleccionarCentralUploadODN(central); }
+      return;
+    }
+  }
+}
+
 function cargarODN(input) {
   const f = input.files[0]; if (!f) return;
+
+  // Intentar autosugerir estado/central por el nombre del archivo (si aún no hay nada elegido)
+  autoSugerirEstadoCentralODN(f.name);
+
+  const estado = document.getElementById('odn-up-estado-search')?.value?.trim().toUpperCase();
+  const central = document.getElementById('odn-up-central-search')?.value?.trim().toUpperCase();
+  if (!estado || !ESTADOS.includes(estado)) {
+    document.getElementById('msg-odn').innerHTML = '<div class="alert alert-err">Selecciona primero el Estado al que pertenece este archivo.</div>';
+    input.value = '';
+    return;
+  }
+  if (!central) {
+    document.getElementById('msg-odn').innerHTML = '<div class="alert alert-err">Selecciona primero la Central/Ciudad a la que pertenece este archivo.</div>';
+    input.value = '';
+    return;
+  }
+  // Si la central escrita no existe todavía, se registra automáticamente bajo el estado elegido
+  if (registrarCentralNueva(central, estado)) reordenarZonas();
+
   const r = new FileReader();
   r.onload = e => {
     try {
       const wb = XLSX.read(e.target.result, {type:'binary'});
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
-      // Find header row
-      let headerRow = -1;
-      for (let i = 0; i < Math.min(10, rows.length); i++) {
-        if (rows[i] && rows[i].some(c => String(c||'').includes('ACRÓNIMO') || String(c||'').includes('ACRONIMO'))) { headerRow = i; break; }
-      }
-      if (headerRow < 0) { document.getElementById('msg-odn').innerHTML = '<div class="alert alert-err">No se encontró la fila de encabezados. Verifique el formato del archivo.</div>'; return; }
-      const headers = rows[headerRow].map(h => String(h||'').trim());
-      const dataRows = rows.slice(headerRow + 1).filter(r => r && String(r[0]||'').match(/^\d+$/));
       const colMap = {
         N:0, ACRONIMO:1, IP:2, TARJETA:6, PUERTO_OLT:7,
         RACK:11, SUB_RACK:12, BANDEJA:13,
@@ -3025,16 +3176,31 @@ function cargarODN(input) {
         DIRECCION:33, INMUEBLE:34, LATITUD:35, LONGITUD:36, OBSERVACION:37
       };
       let added = 0;
-      dataRows.forEach(row => {
-        const rec = {};
-        Object.entries(colMap).forEach(([k,i]) => { rec[k] = String(row[i]||'').trim(); });
-        if (rec.ID_FAT && !DB.odn_extra.find(o => o.ID_FAT === rec.ID_FAT && o.PUERTO_SPL2 === rec.PUERTO_SPL2)) {
-          DB.odn_extra.push(rec); added++;
+      let hojasSinDatos = [];
+
+      // Recorrer TODAS las hojas del libro (cada hoja = una torre/edificio independiente)
+      wb.SheetNames.forEach(sheetName => {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1});
+        let headerRow = -1;
+        for (let i = 0; i < Math.min(10, rows.length); i++) {
+          if (rows[i] && rows[i].some(c => String(c||'').includes('ACRÓNIMO') || String(c||'').includes('ACRONIMO'))) { headerRow = i; break; }
         }
+        if (headerRow < 0) { hojasSinDatos.push(sheetName); return; }
+        const dataRows = rows.slice(headerRow + 1).filter(row => row && String(row[0]||'').match(/^\d+$/));
+
+        dataRows.forEach(row => {
+          const rec = { ESTADO: estado, ZONA: central, TORRE: sheetName.trim() };
+          Object.entries(colMap).forEach(([k,i]) => { rec[k] = String(row[i]||'').trim(); });
+          if (rec.ID_FAT && !DB.odn_extra.find(o => o.ESTADO === rec.ESTADO && o.ZONA === rec.ZONA && o.TORRE === rec.TORRE && o.ID_FAT === rec.ID_FAT && o.PUERTO_SPL2 === rec.PUERTO_SPL2)) {
+            DB.odn_extra.push(rec); added++;
+          }
+        });
       });
+
       addHistorial('carga_datos', {tipo:'odn', count: added});
       saveDB();
-      document.getElementById('msg-odn').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} registros ODN cargados exitosamente.</div>`;
+      const avisoHojas = hojasSinDatos.length ? ` (${hojasSinDatos.length} hoja(s) sin formato reconocido, omitida(s): ${hojasSinDatos.join(', ')})` : '';
+      document.getElementById('msg-odn').innerHTML = `<div class="alert alert-ok">${iconCheck()} ${added} registros ODN cargados de ${wb.SheetNames.length} hoja(s) (torres/edificios) para ${central} (${estado}).${avisoHojas}</div>`;
     } catch(err) {
       document.getElementById('msg-odn').innerHTML = `<div class="alert alert-err">Error al leer el archivo: ${err.message}</div>`;
     }
@@ -3916,38 +4082,116 @@ function getPrevChecklist(actId) {
    ============================================================ */
 let odNSelectedSub = null;
 
+// Estado de los filtros de Red ODN (persiste entre re-renders para permitir cascada)
+let _odnFiltro = { estado: '', central: '', torre: '', fat: '', dir: '', search: '', soloLibres: false, _inicializado: false };
+
+function inicializarFiltroODNPorDefecto() {
+  if (_odnFiltro._inicializado) return;
+  _odnFiltro._inicializado = true;
+  if (SESSION.role !== 'gerente_general' && SESSION.zona) {
+    const entradaEstado = Object.entries(ESTADO_CENTRALES).find(([est, centrales]) => centrales.includes(SESSION.zona));
+    if (entradaEstado) {
+      _odnFiltro.estado = entradaEstado[0];
+      _odnFiltro.central = SESSION.zona;
+    }
+  }
+}
+
+function odnFiltroCambiar(nivel, valor) {
+  _odnFiltro[nivel] = valor;
+  if (nivel === 'estado') { _odnFiltro.central=''; _odnFiltro.torre=''; _odnFiltro.fat=''; }
+  if (nivel === 'central') { _odnFiltro.torre=''; _odnFiltro.fat=''; }
+  if (nivel === 'torre') { _odnFiltro.fat=''; }
+  renderODN(document.getElementById('main-content'));
+}
+
+function odnBuscarTexto(valor) {
+  _odnFiltro.search = valor.toLowerCase().trim();
+  renderODNContent();
+}
+
+function odnToggleSoloLibres() {
+  _odnFiltro.soloLibres = !_odnFiltro.soloLibres;
+  const btn = document.getElementById('odn-btn-libres');
+  if (btn) btn.classList.toggle('btn-green', _odnFiltro.soloLibres);
+  renderODNContent();
+}
+
+// Campo de búsqueda reutilizable para los filtros en cascada de Red ODN
+function renderFiltroODN(nivel, label, opciones, valorActual, deshabilitado) {
+  const listId = 'odnf-' + nivel + '-list';
+  const inputId = 'odnf-' + nivel + '-search';
+  return `<div style="position:relative;flex:1;min-width:150px">
+    <label style="display:block;font-size:11px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">${label}</label>
+    <input type="text" id="${inputId}" placeholder="Buscar o ver todos..." autocomplete="off" ${deshabilitado?'disabled':''}
+      value="${(valorActual || '').replace(/"/g,'&quot;')}"
+      oninput="filtrarListaGenerica('${listId}', this.value)"
+      onfocus="document.getElementById('${listId}').style.display='block'"
+      onblur="setTimeout(()=>{const l=document.getElementById('${listId}');if(l)l.style.display='none';},200)"
+      readonly onclick="this.removeAttribute('readonly');this.select()"
+      style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid ${valorActual?'var(--blue)':'var(--border)'};font-size:13px;background:${deshabilitado?'#F2F2F2':'#fff'};cursor:${deshabilitado?'not-allowed':'pointer'};box-sizing:border-box;font-weight:${valorActual?'600':'400'}">
+    <div id="${listId}" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)">
+      <div class="lista-opt" data-txt="" onclick="odnFiltroCambiar('${nivel}','')" style="padding:7px 12px;cursor:pointer;font-size:12.5px;color:var(--txt-muted);font-style:italic">— Todos —</div>
+      ${opciones.map(o=>`<div class="lista-opt" data-txt="${o.toLowerCase()}" onclick="odnFiltroCambiar('${nivel}','${o.replace(/'/g,"\\'")}')" style="padding:7px 12px;cursor:pointer;font-size:12.5px">${o}</div>`).join('')}
+      ${!opciones.length ? '<div style="padding:8px 12px;font-size:12px;color:var(--muted)">Sin opciones disponibles</div>' : ''}
+    </div>
+  </div>`;
+}
+
 function renderODN(c) {
+  inicializarFiltroODNPorDefecto();
   const allData = [...ODN_DATA_RAW, ...DB.odn_extra];
   const isAdmin = SESSION.role === 'gerente_general' || SESSION.role === 'gerente_zona';
-  const title = isAdmin ? 'Red ODN — Vista Completa' : `Red ODN — Zona ${SESSION.zona}`;
+  const title = isAdmin ? 'Red ODN — Vista Nacional' : `Red ODN — Zona ${SESSION.zona}`;
 
-  // Get unique zones from data
-  const zones = [...new Set(allData.map(r => r.ZONA || 'ALTAVISTA'))];
-  const fats = [...new Set(allData.map(r => r.ID_FAT).filter(Boolean))];
+  // Estado y Central/Ciudad muestran SIEMPRE la lista completa registrada en el sistema
+  // (Registro de Zonas), no solo las que ya tienen datos ODN cargados — así se puede
+  // navegar a nivel nacional aunque un estado todavía no tenga información.
+  const estadosDisp = ESTADOS.slice();
+  const centralesDisp = (_odnFiltro.estado ? (ESTADO_CENTRALES[_odnFiltro.estado] || []) : ZONES).slice();
+  const torresDisp = [...new Set(allData.filter(r=>(!_odnFiltro.estado||r.ESTADO===_odnFiltro.estado)&&(!_odnFiltro.central||r.ZONA===_odnFiltro.central)).map(r=>r.TORRE).filter(Boolean))].sort();
+  const fatsDisp = [...new Set(allData.filter(r=>(!_odnFiltro.estado||r.ESTADO===_odnFiltro.estado)&&(!_odnFiltro.central||r.ZONA===_odnFiltro.central)&&(!_odnFiltro.torre||r.TORRE===_odnFiltro.torre)).map(r=>r.ID_FAT).filter(Boolean))].sort();
+  const dirsDisp = [...new Set(allData.map(r=>r.DIRECCION).filter(Boolean))].sort();
+  const totalEstadosConDatos = [...new Set(allData.map(r=>r.ESTADO).filter(Boolean))].length;
+  const totalCentralesConDatos = [...new Set(allData.map(r=>r.ZONA).filter(Boolean))].length;
 
   c.innerHTML = `
   <div class="page-header">
     <div>
       <div class="page-title">${title}</div>
-      <div class="page-sub">${allData.length} conexiones registradas · ${fats.length} FATs · OLT: avt-olt-00</div>
+      <div class="page-sub">${allData.length} conexiones registradas · datos cargados en ${totalEstadosConDatos} estado(s) y ${totalCentralesConDatos} central(es)/ciudad(es)</div>
     </div>
   </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchODNTab(this,'tabla')">Vista Tabla</button>
     <button class="tab-btn" onclick="switchODNTab(this,'arbol')">Vista Árbol / Diagrama</button>
   </div>
-  <div class="filter-bar">
-    <select id="odn-filt-fat" onchange="renderODNContent()">
-      <option value="">Todos los FATs</option>
-      ${fats.map(f=>`<option>${f}</option>`).join('')}
-    </select>
-    <select id="odn-filt-dir" onchange="renderODNContent()">
-      <option value="">Todas las ubicaciones</option>
-      ${[...new Set(allData.map(r=>r.DIRECCION).filter(Boolean))].map(d=>`<option>${d}</option>`).join('')}
-    </select>
-    <input type="text" id="odn-search" placeholder="Buscar abonado, FAT, serial..." onkeyup="renderODNContent()" style="min-width:200px">
-    <button class="btn btn-outline btn-sm" onclick="exportODN()">Exportar</button>
+
+  <div style="background:#EAF4FC;border:1.5px solid var(--blue);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:10px">
+    <div style="font-size:12px;font-weight:700;color:var(--blue-dark,#0277BD);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+      ${iconMapPin()} Ubicación
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      ${renderFiltroODN('estado', 'Estado', estadosDisp, _odnFiltro.estado)}
+      ${renderFiltroODN('central', 'Central / Ciudad', centralesDisp, _odnFiltro.central)}
+      ${renderFiltroODN('torre', 'Torre / Edificio', torresDisp, _odnFiltro.torre)}
+    </div>
   </div>
+
+  <div style="background:#F7F8FA;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Red y Búsqueda</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      ${renderFiltroODN('fat', 'FAT', fatsDisp, _odnFiltro.fat)}
+      ${renderFiltroODN('dir', 'Dirección', dirsDisp, _odnFiltro.dir)}
+      <div style="flex:2;min-width:200px">
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">Buscar</label>
+        <input type="text" id="odn-search" placeholder="Abonado, FAT, serial, IP..." value="${_odnFiltro.search}" oninput="odnBuscarTexto(this.value)" style="width:100%;padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);font-size:13px;box-sizing:border-box">
+      </div>
+      <button id="odn-btn-libres" class="btn btn-sm ${_odnFiltro.soloLibres?'btn-green':'btn-outline'}" onclick="odnToggleSoloLibres()">${iconEye()} ${_odnFiltro.soloLibres ? 'Mostrando solo libres' : 'Mostrar puertos libres'}</button>
+      <button class="btn btn-outline btn-sm" onclick="exportODN()">Exportar</button>
+    </div>
+  </div>
+
   <div id="odn-tab-tabla">
     <div id="odn-content-tabla"></div>
   </div>
@@ -3984,15 +4228,19 @@ function switchODNTab(btn, tab) {
 
 function getFilteredODN() {
   const allData = [...ODN_DATA_RAW, ...DB.odn_extra];
-  const fatFilt = document.getElementById('odn-filt-fat')?.value || '';
-  const dirFilt = document.getElementById('odn-filt-dir')?.value || '';
-  const search  = (document.getElementById('odn-search')?.value || '').toLowerCase();
   return allData.filter(r => {
-    if (fatFilt && r.ID_FAT !== fatFilt) return false;
-    if (dirFilt && r.DIRECCION !== dirFilt) return false;
-    if (search) {
-      const hay = [r.INMUEBLE, r.ID_FAT, r.ACRONIMO, r.DIRECCION, r.SPLITTER_2, r.IP].join(' ').toLowerCase();
-      if (!hay.includes(search)) return false;
+    if (_odnFiltro.estado && r.ESTADO !== _odnFiltro.estado) return false;
+    if (_odnFiltro.central && r.ZONA !== _odnFiltro.central) return false;
+    if (_odnFiltro.torre && r.TORRE !== _odnFiltro.torre) return false;
+    if (_odnFiltro.fat && r.ID_FAT !== _odnFiltro.fat) return false;
+    if (_odnFiltro.dir && r.DIRECCION !== _odnFiltro.dir) return false;
+    if (_odnFiltro.soloLibres) {
+      const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre');
+      if (!libre) return false;
+    }
+    if (_odnFiltro.search) {
+      const hay = [r.INMUEBLE, r.ID_FAT, r.ACRONIMO, r.DIRECCION, r.SPLITTER_2, r.IP, r.TORRE, r.ZONA, r.ESTADO].join(' ').toLowerCase();
+      if (!hay.includes(_odnFiltro.search)) return false;
     }
     return true;
   });
@@ -4004,50 +4252,73 @@ function renderODNContent() {
   if (!el) return;
   if (!data.length) { el.innerHTML = '<div class="card"><p style="color:var(--txt-muted)">No se encontraron registros con los filtros aplicados.</p></div>'; return; }
 
-  // Group by FAT
-  const byFat = {};
+  // Agrupar primero por Torre/Edificio (cada hoja del Excel es una torre independiente)
+  const byTorre = {};
   data.forEach(r => {
-    const fat = r.ID_FAT || 'Sin FAT';
-    if (!byFat[fat]) byFat[fat] = { rows: [], dir: r.DIRECCION || '', olt: r.ACRONIMO || '', tarjeta: r.TARJETA || '', puerto: r.PUERTO_OLT || '', spl1: r.SPLITTER_1 || '', spl2: r.SPLITTER_2 || '' };
-    byFat[fat].rows.push(r);
+    const torre = r.TORRE || 'Sin Torre';
+    if (!byTorre[torre]) byTorre[torre] = [];
+    byTorre[torre].push(r);
   });
 
-  el.innerHTML = Object.entries(byFat).map(([fat, info]) => {
-    const total = info.rows.length;
-    const libres = info.rows.filter(r => !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre')).length;
-    const ocupados = total - libres;
-    return `<div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div>
-          <div class="card-title">${fat}</div>
-          <div style="font-size:12px;color:var(--txt-muted)">${info.dir} · OLT: ${info.olt} · Tarjeta: ${info.tarjeta} · Puerto PON: ${info.puerto}</div>
-          <div style="font-size:12px;color:var(--txt-muted)">Splitter 1: ${info.spl1} · Splitter 2: ${info.spl2}</div>
+  el.innerHTML = Object.entries(byTorre).sort((a,b)=>a[0].localeCompare(b[0])).map(([torre, torreRows]) => {
+    // Dentro de cada torre, agrupar por FAT
+    const byFat = {};
+    torreRows.forEach(r => {
+      const fat = r.ID_FAT || 'Sin FAT';
+      if (!byFat[fat]) byFat[fat] = { rows: [], dir: r.DIRECCION || '', olt: r.ACRONIMO || '', tarjeta: r.TARJETA || '', puerto: r.PUERTO_OLT || '', spl1: r.SPLITTER_1 || '', spl2: r.SPLITTER_2 || '' };
+      byFat[fat].rows.push(r);
+    });
+    const totalTorre = torreRows.length;
+    const libresTorre = torreRows.filter(r => !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre')).length;
+
+    return `<div class="card" style="margin-bottom:20px;border:1.5px solid var(--blue);padding:0;overflow:hidden">
+      <div style="background:var(--blue-lt,#EAF4FC);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue-dark)" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12h12"/><path d="M6 7h12"/><path d="M6 17h12"/></svg>
+          <span style="font-weight:700;font-size:15px;color:var(--blue-dark)">${torre}</span>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:12px"><span style="color:var(--red);font-weight:700">${ocupados}</span> ocupados / <span style="color:var(--green);font-weight:700">${libres}</span> libres</div>
-          <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;justify-content:flex-end">
-            ${info.rows.map((r,i) => {
-              const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre');
-              return `<div class="port-btn ${libre?'port-free':'port-used'}" title="${libre?'Puerto libre':'Abonado: '+r.INMUEBLE}" onclick="verAbonado(${JSON.stringify(r).replace(/"/g,'&quot;')})">${r.PUERTO_SPL2||i+1}</div>`;
-            }).join('')}
-          </div>
-        </div>
+        <div style="font-size:12px;color:var(--txt-muted)">${totalTorre - libresTorre} ocupados · ${libresTorre} libres · ${Object.keys(byFat).length} FAT(s)</div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Puerto</th><th>Abonado</th><th>Dirección</th><th>Cable Drop</th><th>Splitter 2</th><th>Acciones</th></tr></thead>
-          <tbody>${info.rows.map(r => {
-            const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre');
-            return `<tr>
-              <td><strong>${r.PUERTO_SPL2}</strong></td>
-              <td>${libre ? '<span style="color:var(--green-lt);font-style:italic">Puerto libre</span>' : `<strong>${r.INMUEBLE}</strong>`}</td>
-              <td style="font-size:12px">${r.DIRECCION}</td>
-              <td style="font-size:12px">${r.ID_CABLE_DROP}</td>
-              <td style="font-size:12px">${r.SPLITTER_2}</td>
-              <td><button class="btn btn-sm btn-outline" onclick="verAbonado(${JSON.stringify(r).replace(/"/g,'&quot;')})">${iconEye()} Detalles</button></td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
+      <div style="padding:14px 18px">
+      ${Object.entries(byFat).map(([fat, info]) => {
+        const total = info.rows.length;
+        const libres = info.rows.filter(r => !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre')).length;
+        const ocupados = total - libres;
+        return `<div class="card" style="margin-bottom:14px">
+          <div class="card-header">
+            <div>
+              <div class="card-title">${fat}</div>
+              <div style="font-size:12px;color:var(--txt-muted)">${info.dir} · OLT: ${info.olt} · Tarjeta: ${info.tarjeta} · Puerto PON: ${info.puerto}</div>
+              <div style="font-size:12px;color:var(--txt-muted)">Splitter 1: ${info.spl1} · Splitter 2: ${info.spl2}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px"><span style="color:var(--red);font-weight:700">${ocupados}</span> ocupados / <span style="color:var(--green);font-weight:700">${libres}</span> libres</div>
+              <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;justify-content:flex-end">
+                ${info.rows.map((r,i) => {
+                  const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre');
+                  return `<div class="port-btn ${libre?'port-free':'port-used'}" title="${libre?'Puerto libre':'Abonado: '+r.INMUEBLE}" onclick="verAbonado(${JSON.stringify(r).replace(/"/g,'&quot;')})">${r.PUERTO_SPL2||i+1}</div>`;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Puerto</th><th>Abonado</th><th>Dirección</th><th>Cable Drop</th><th>Splitter 2</th><th>Acciones</th></tr></thead>
+              <tbody>${info.rows.map(r => {
+                const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre') || r.OBSERVACION?.toLowerCase().includes('libre');
+                return `<tr>
+                  <td><strong>${r.PUERTO_SPL2}</strong></td>
+                  <td>${libre ? '<span style="color:var(--green-lt);font-style:italic">Puerto libre</span>' : `<strong>${r.INMUEBLE}</strong>`}</td>
+                  <td style="font-size:12px">${r.DIRECCION}</td>
+                  <td style="font-size:12px">${r.ID_CABLE_DROP}</td>
+                  <td style="font-size:12px">${r.SPLITTER_2}</td>
+                  <td><button class="btn btn-sm btn-outline" onclick="verAbonado(${JSON.stringify(r).replace(/"/g,'&quot;')})">${iconEye()} Detalles</button></td>
+                </tr>`;
+              }).join('')}</tbody>
+            </table>
+          </div>
+        </div>`;
+      }).join('')}
       </div>
     </div>`;
   }).join('');
@@ -4064,6 +4335,8 @@ function verAbonado(r) {
         ${libre ? 'Puerto disponible para nueva conexión' : r.INMUEBLE}
       </div>
       <div class="odn-detail-grid">
+        <div class="odn-detail-item"><label>Estado / Central</label><span style="font-size:12px">${r.ESTADO || '—'} / ${r.ZONA || '—'}</span></div>
+        <div class="odn-detail-item"><label>Torre / Edificio</label><span style="font-size:12px">${r.TORRE || '—'}</span></div>
         <div class="odn-detail-item"><label>FAT / ID</label><span style="font-size:12px">${r.ID_FAT}</span></div>
         <div class="odn-detail-item"><label>Puerto Splitter 2</label><span>${r.PUERTO_SPL2}</span></div>
         <div class="odn-detail-item"><label>Dirección</label><span style="font-size:12px">${r.DIRECCION}</span></div>
@@ -4091,50 +4364,61 @@ function verAbonado(r) {
 }
 
 function renderODNTree() {
-  const allData = [...ODN_DATA_RAW, ...DB.odn_extra];
+  const allData = getFilteredODN();
   const container = document.getElementById('odn-tree-container');
   if (!container) return;
 
-  // Build tree: OLT > Feeder > FAT > Abonado
+  // Build tree: Torre > OLT > Feeder > FAT > Abonado
   const tree = {};
   allData.forEach(r => {
+    const torre = r.TORRE || 'Sin Torre';
     const olt = r.ACRONIMO || 'OLT';
     const feeder = r.ID_CABLE_FEEDER || 'Feeder';
     const fat = r.ID_FAT || 'FAT';
-    if (!tree[olt]) tree[olt] = {};
-    if (!tree[olt][feeder]) tree[olt][feeder] = {};
-    if (!tree[olt][feeder][fat]) tree[olt][feeder][fat] = [];
-    tree[olt][feeder][fat].push(r);
+    if (!tree[torre]) tree[torre] = {};
+    if (!tree[torre][olt]) tree[torre][olt] = {};
+    if (!tree[torre][olt][feeder]) tree[torre][olt][feeder] = {};
+    if (!tree[torre][olt][feeder][fat]) tree[torre][olt][feeder][fat] = [];
+    tree[torre][olt][feeder][fat].push(r);
   });
 
   let html = '';
-  Object.entries(tree).forEach(([olt, feeders]) => {
-    html += `<div class="odn-node odn-node-olt" onclick="toggleNode('olt-${olt}')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      &nbsp;OLT: ${olt}
+  Object.entries(tree).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([torre, olts]) => {
+    const tid = 'torre-' + torre.replace(/[^a-z0-9]/gi,'_');
+    html += `<div class="odn-node odn-node-torre" style="font-weight:700" onclick="toggleNode('${tid}')">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12h12"/><path d="M6 7h12"/></svg>
+      &nbsp;${torre}
     </div>
-    <div id="olt-${olt}" class="odn-children">`;
-    Object.entries(feeders).forEach(([feeder, fats]) => {
-      const fid = 'f-' + feeder.replace(/[^a-z0-9]/gi,'_');
-      html += `<div class="odn-node" style="font-size:12px" onclick="toggleNode('${fid}')">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        &nbsp;${feeder.length > 30 ? feeder.slice(0,28)+'...' : feeder}
+    <div id="${tid}" class="odn-children">`;
+    Object.entries(olts).forEach(([olt, feeders]) => {
+      html += `<div class="odn-node odn-node-olt" onclick="toggleNode('olt-${tid}-${olt}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        &nbsp;OLT: ${olt}
       </div>
-      <div id="${fid}" class="odn-children">`;
-      Object.entries(fats).forEach(([fat, subs]) => {
-        const fatId = 'fat-' + fat.replace(/[^a-z0-9]/gi,'_');
-        html += `<div class="odn-node odn-node-fat" style="font-size:12px" onclick="toggleNode('${fatId}')">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-          &nbsp;${fat}
+      <div id="olt-${tid}-${olt}" class="odn-children">`;
+      Object.entries(feeders).forEach(([feeder, fats]) => {
+        const fid = 'f-' + tid + '-' + feeder.replace(/[^a-z0-9]/gi,'_');
+        html += `<div class="odn-node" style="font-size:12px" onclick="toggleNode('${fid}')">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          &nbsp;${feeder.length > 30 ? feeder.slice(0,28)+'...' : feeder}
         </div>
-        <div id="${fatId}" class="odn-children hidden">`;
-        subs.forEach(r => {
-          const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre');
-          html += `<div class="odn-node odn-node-sub" style="font-size:11px;cursor:pointer" onclick="selectODNSub(${JSON.stringify(r).replace(/"/g,'&quot;')}, this)">
-            <span style="color:${libre?'var(--green-lt)':'var(--txt)'}">
-              Pto.${r.PUERTO_SPL2} — ${libre ? '(libre)' : r.INMUEBLE}
-            </span>
-          </div>`;
+        <div id="${fid}" class="odn-children">`;
+        Object.entries(fats).forEach(([fat, subs]) => {
+          const fatId = 'fat-' + tid + '-' + fat.replace(/[^a-z0-9]/gi,'_');
+          html += `<div class="odn-node odn-node-fat" style="font-size:12px" onclick="toggleNode('${fatId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            &nbsp;${fat}
+          </div>
+          <div id="${fatId}" class="odn-children hidden">`;
+          subs.forEach(r => {
+            const libre = !r.INMUEBLE || r.INMUEBLE.toLowerCase().includes('libre');
+            html += `<div class="odn-node odn-node-sub" style="font-size:11px;cursor:pointer" onclick="selectODNSub(${JSON.stringify(r).replace(/"/g,'&quot;')}, this)">
+              <span style="color:${libre?'var(--green-lt)':'var(--txt)'}">
+                Pto.${r.PUERTO_SPL2} — ${libre ? '(libre)' : r.INMUEBLE}
+              </span>
+            </div>`;
+          });
+          html += '</div>';
         });
         html += '</div>';
       });
@@ -4181,8 +4465,8 @@ function selectODNSub(r, el) {
 
 function exportODN() {
   const data = getFilteredODN();
-  const ws = [['FAT','Puerto','Abonado','Dirección','OLT','Tarjeta','Puerto PON','Rack','Splitter 1','Splitter 2','Cable Drop','Feeder','Manga Dist.','Cable Distribución','Caja Derivación','Coordenadas']];
-  data.forEach(r => ws.push([r.ID_FAT,r.PUERTO_SPL2,r.INMUEBLE,r.DIRECCION,r.ACRONIMO,r.TARJETA,r.PUERTO_OLT,r.RACK,r.SPLITTER_1,r.SPLITTER_2,r.ID_CABLE_DROP,r.ID_CABLE_FEEDER,r.ID_MANGA_DIST,r.ID_CABLE_DIST,r.ID_CAJA_DERIV,`${r.LATITUD},${r.LONGITUD}`]));
+  const ws = [['Estado','Central/Ciudad','Torre','FAT','Puerto','Abonado','Dirección','OLT','Tarjeta','Puerto PON','Rack','Splitter 1','Splitter 2','Cable Drop','Feeder','Manga Dist.','Cable Distribución','Caja Derivación','Coordenadas']];
+  data.forEach(r => ws.push([r.ESTADO,r.ZONA,r.TORRE,r.ID_FAT,r.PUERTO_SPL2,r.INMUEBLE,r.DIRECCION,r.ACRONIMO,r.TARJETA,r.PUERTO_OLT,r.RACK,r.SPLITTER_1,r.SPLITTER_2,r.ID_CABLE_DROP,r.ID_CABLE_FEEDER,r.ID_MANGA_DIST,r.ID_CABLE_DIST,r.ID_CAJA_DERIV,`${r.LATITUD},${r.LONGITUD}`]));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), 'ODN');
   XLSX.writeFile(wb, `ODN-GPON-${new Date().toISOString().slice(0,10)}.xlsx`);
